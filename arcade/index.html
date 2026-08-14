@@ -146,6 +146,19 @@
   .mcard.matched .mface.front{border-color:currentColor;
     box-shadow:0 0 0 1px currentColor inset;opacity:.5}
   .mcard.shake .minner{animation:mshake .4s}
+  .match-levels{position:absolute;inset:0;top:53px;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:20px;padding:24px;text-align:center;z-index:4;
+    background:var(--bg,#0d1220)}
+  .match-levels.hide{display:none}
+  .match-levels h3{font-size:22px;font-weight:800}
+  .match-levels p{color:var(--dim);font-size:14px;max-width:340px;line-height:1.6}
+  .mlevels-row{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+  .mlevel{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:18px 22px;cursor:pointer;font-family:inherit;color:var(--ink);min-width:92px;
+    transition:transform .12s,border-color .18s}
+  .mlevel:hover{transform:translateY(-3px);border-color:var(--cyan)}
+  .mlevel .n{font-size:28px;font-weight:800;color:var(--cyan)}
+  .mlevel .l{font-size:12px;color:var(--dim);margin-top:3px}
   @keyframes mshake{0%,100%{transform:rotateY(180deg) translateX(0)}
     25%{transform:rotateY(180deg) translateX(-5px)}75%{transform:rotateY(180deg) translateX(5px)}}
 </style>
@@ -241,6 +254,7 @@
           <div>시간 <b id="match-time">0:00</b></div>
         </div>
       </div>
+      <div class="match-levels" id="match-levels"></div>
       <div class="match-wrap"><div class="mboard" id="mboard"></div></div>
     </div>
 
@@ -939,7 +953,31 @@ function roundRect(ctx,x,y,w,h,r){
 let matchTimer=null, matchBest={};
 function startMatch(){
   clearInterval(matchTimer);
-  const PAIRS=Math.min(8, WORDS.length);   // 한 판 최대 8쌍
+  // 레벨 선택 화면 먼저
+  const board=$('#mboard'); board.innerHTML='';
+  const lv=$('#match-levels'); lv.classList.remove('hide'); lv.innerHTML='';
+  $('#match-pairs').textContent='0/0';
+  $('#match-moves').textContent='0';
+  $('#match-time').textContent='0:00';
+  const maxPairs=WORDS.length;
+  const LEVELS=[{pairs:6,label:'쉬움'},{pairs:8,label:'보통'},{pairs:10,label:'어려움'}]
+    .filter(L=>L.pairs<=maxPairs);
+  if(LEVELS.length===0) LEVELS.push({pairs:maxPairs,label:'전체'});
+  const head=document.createElement('div');
+  head.innerHTML='<h3>난이도 선택</h3><p>맞출 카드 쌍의 수를 고르세요. 많을수록 어렵습니다.</p>';
+  lv.appendChild(head);
+  const row=document.createElement('div'); row.className='mlevels-row';
+  LEVELS.forEach(L=>{
+    const b=document.createElement('button'); b.className='mlevel';
+    b.innerHTML='<div class="n">'+L.pairs+'</div><div class="l">'+L.label+' · '+L.pairs+'쌍</div>';
+    b.onclick=()=>playMatch(L.pairs);
+    row.appendChild(b);
+  });
+  lv.appendChild(row);
+}
+
+function playMatch(PAIRS){
+  $('#match-levels').classList.add('hide');
   const picks=shuffle(WORDS.slice()).slice(0,PAIRS);
   let deck=[];
   picks.forEach((w,i)=>{
@@ -968,7 +1006,6 @@ function startMatch(){
       '<div class="mface front '+card.type+'">'+card.text+'</div></div>';
     el.onclick=()=>flipCard(el,card);
     board.appendChild(el);
-    // 긴 단어 자동 축소
     const front=el.querySelector('.mface.front');
     const len=card.text.length;
     if(len>8) front.style.fontSize=(len>12?'11px':'13px');
@@ -996,10 +1033,9 @@ function startMatch(){
   }
   function matchWin(){
     clearInterval(matchTimer);
-    const key=topicName;
+    const key=topicName+'-'+total;
     const isBest = matchBest[key]==null || msec<matchBest[key];
     if(isBest) matchBest[key]=msec;
-    // 기존 결과 오버레이 활용
     $('#r-title').textContent='카드 뒤집기 완성! 🎉';
     $('#r-score').textContent=fmtT(msec);
     $('#r-best').textContent = isBest ? '🏆 신기록!' : '최고 기록 '+fmtT(matchBest[key]);
