@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>단어 아케이드</title>
+<style>
+  :root{
+    --bg:#0d1220; --panel:#141c30; --ink:#eaf0ff; --dim:#8a97b8;
+    --lime:#c6ff4a; --cyan:#3fe0d0; --amber:#ffb84d; --pink:#ff5d8f;
+    --danger:#ff4d5e; --line:#243050;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:radial-gradient(1200px 600px at 50% -10%,#1a2547,var(--bg));
+    color:var(--ink); font-family:"Trebuchet MS",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased; overflow:hidden;
+    overscroll-behavior:none; touch-action:manipulation;
+  }
+  canvas{touch-action:none}
+  #app{height:100dvh;display:flex;flex-direction:column}
+  .topbar{
+    display:flex;align-items:center;gap:14px;padding:12px 18px;
+    border-bottom:1px solid var(--line);background:rgba(20,28,48,.6);
+  }
+  .logo{font-weight:900;letter-spacing:1px;font-size:20px}
+  .logo b{color:var(--lime)}
+  .stat{margin-left:auto;display:flex;gap:18px;font-size:14px;color:var(--dim)}
+  .stat b{color:var(--ink);font-size:17px}
+  .stage{flex:1;position:relative;overflow:hidden}
+  .btn{
+    cursor:pointer;border:none;border-radius:12px;padding:14px 20px;
+    font-weight:800;font-size:16px;font-family:inherit;transition:transform .08s,filter .2s;
+  }
+  .btn:active{transform:translateY(2px)}
+  .btn.primary{background:var(--lime);color:#0d1220}
+  .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+  .btn:hover{filter:brightness(1.08)}
+  .btn:focus-visible{outline:3px solid var(--cyan);outline-offset:2px}
+
+  /* MENU */
+  .menu{position:absolute;inset:0;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:26px;padding:24px;text-align:center}
+  .menu h1{font-size:clamp(28px,6vw,52px);line-height:1.05;font-weight:900}
+  .menu h1 span{color:var(--cyan)}
+  .menu p{color:var(--dim);max-width:440px}
+  .topics{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;max-width:640px}
+  .topic{padding:9px 18px;border-radius:22px;background:transparent;color:var(--dim);
+    border:1px solid var(--line);font-family:inherit;font-weight:800;font-size:14px;cursor:pointer;
+    transition:all .15s}
+  .topic:hover{border-color:var(--cyan);color:var(--ink)}
+  .topic.active{background:var(--lime);color:#0d1220;border-color:var(--lime)}
+  .topic small{opacity:.7;font-weight:700}
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:720px;width:100%}
+  @media(max-width:640px){.cards{grid-template-columns:1fr}}
+  .gcard{
+    background:var(--panel);border:1px solid var(--line);border-radius:18px;
+    padding:22px 18px;text-align:left;cursor:pointer;transition:transform .12s,border-color .2s;
+  }
+  .gcard:hover{transform:translateY(-4px);border-color:var(--cyan)}
+  .gcard .ic{font-size:34px}
+  .gcard h3{margin:10px 0 6px;font-size:19px}
+  .gcard small{color:var(--dim);line-height:1.5;display:block}
+  .tag{display:inline-block;margin-top:12px;font-size:11px;font-weight:800;
+    padding:4px 9px;border-radius:20px;background:rgba(198,255,74,.12);color:var(--lime)}
+
+  /* HUD / overlays */
+  .hud{position:absolute;top:12px;left:12px;right:12px;display:flex;
+    align-items:center;gap:12px;z-index:6;pointer-events:none}
+  .hud .btn{pointer-events:auto}
+  .hud .btn.ghost{padding:7px 12px;font-size:13px;border-radius:9px}
+  .prompt{
+    background:rgba(20,28,48,.9);border:1px solid var(--line);border-radius:14px;
+    padding:10px 16px;font-size:clamp(16px,2.6vw,22px);font-weight:800;
+    box-shadow:0 6px 24px rgba(0,0,0,.4)}
+  .prompt small{display:block;color:var(--dim);font-size:12px;font-weight:600}
+  .life{margin-left:auto;font-size:13px;letter-spacing:1px;white-space:nowrap}
+
+  .overlay{position:absolute;inset:0;background:rgba(9,13,24,.86);z-index:20;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:18px;text-align:center;padding:24px;backdrop-filter:blur(3px)}
+  .overlay h2{font-size:40px;font-weight:900}
+  .overlay .big{font-size:64px;color:var(--lime);font-weight:900}
+  .overlay .row{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+  .hide{display:none!important}
+  .combo{position:absolute;top:70px;left:50%;transform:translateX(-50%);
+    font-size:34px;font-weight:900;color:var(--amber);opacity:0;z-index:8;
+    text-shadow:0 2px 12px rgba(0,0,0,.5);pointer-events:none}
+  .speedbar{position:absolute;top:96px;left:50%;transform:translateX(-50%);z-index:7;
+    display:flex;align-items:center;gap:10px;background:rgba(20,28,48,.85);
+    border:1px solid var(--line);border-radius:20px;padding:6px 14px;font-size:13px;color:var(--dim)}
+  .speedbar input[type=range]{width:130px;accent-color:var(--cyan)}
+  #catch-speed-val{color:var(--cyan);font-weight:800;min-width:26px;text-align:center}
+
+  /* CATCH */
+  #catch{position:absolute;inset:0}
+  #catch canvas{display:block;width:100%;height:100%}
+
+  /* SPELL */
+  .spell{position:absolute;inset:0;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:22px;padding:20px}
+  .spell .mean{font-size:30px;font-weight:900}
+  .spell .ex{color:var(--dim);max-width:520px;text-align:center;font-style:italic}
+  .choices{display:grid;grid-template-columns:repeat(2,minmax(140px,220px));gap:14px}
+  @media(max-width:520px){.choices{grid-template-columns:1fr;width:100%;max-width:320px}}
+  .choice{padding:20px 16px;border-radius:14px;background:var(--panel);
+    border:1px solid var(--line);font-size:22px;font-weight:900;color:var(--ink);
+    font-family:inherit;cursor:pointer;transition:transform .08s,border-color .15s}
+  .choice:hover{border-color:var(--cyan)}
+  .choice:active{transform:scale(.96)}
+  .choice.correct{border-color:var(--lime);background:rgba(198,255,74,.14)}
+  .choice.wrong{border-color:var(--danger);background:rgba(255,77,94,.14)}
+  .choice:disabled{cursor:default}
+
+  /* DEFENSE */
+  #defense{position:absolute;inset:0}
+  #defense canvas{display:block;width:100%;height:100%}
+  .word-core{position:absolute;left:50%;bottom:26px;transform:translateX(-50%);
+    background:var(--panel);border:2px solid var(--lime);border-radius:14px;
+    padding:12px 22px;font-size:26px;font-weight:900;z-index:5}
+  /* ===== 카드 뒤집기 ===== */
+  #match{position:absolute;inset:0;display:flex;flex-direction:column}
+  .match-hud{display:flex;align-items:center;gap:10px;padding:10px 14px;
+    border-bottom:1px solid var(--line);background:rgba(20,28,48,.6);flex-shrink:0}
+  .match-hud .info{margin-left:auto;display:flex;gap:14px;
+    font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--dim)}
+  .match-hud .info b{color:var(--ink);font-size:14px}
+  .match-wrap{flex:1;display:flex;align-items:center;justify-content:center;padding:12px;overflow:hidden}
+  .mboard{display:grid;gap:8px;width:100%;max-width:600px;margin:0 auto}
+  .mcard{position:relative;aspect-ratio:3/4;cursor:pointer;perspective:600px;
+    background:transparent;border:none;padding:0;font-family:inherit}
+  .mcard .minner{position:absolute;inset:0;transition:transform .36s cubic-bezier(.4,.15,.2,1);
+    transform-style:preserve-3d}
+  .mcard.flipped .minner,.mcard.matched .minner{transform:rotateY(180deg)}
+  .mface{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;
+    border-radius:11px;display:flex;align-items:center;justify-content:center;padding:5px;
+    text-align:center;font-weight:800;overflow:hidden;line-height:1.15;word-break:keep-all}
+  .mface.back{background:linear-gradient(150deg,#243050,#141c30);
+    border:1px solid var(--line);color:var(--dim);font-size:24px}
+  .mface.back::after{content:"?";opacity:.5}
+  .mface.front{background:var(--panel);border:1px solid var(--line);transform:rotateY(180deg);
+    color:var(--ink);font-size:15px}
+  .mface.front.en{color:var(--lime)}
+  .mface.front.ko{color:var(--cyan)}
+  .mcard.matched .mface.front{border-color:currentColor;
+    box-shadow:0 0 0 1px currentColor inset;opacity:.5}
+  .mcard.shake .minner{animation:mshake .4s}
+  @keyframes mshake{0%,100%{transform:rotateY(180deg) translateX(0)}
+    25%{transform:rotateY(180deg) translateX(-5px)}75%{transform:rotateY(180deg) translateX(5px)}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="topbar">
+    <div class="logo">단어 <b>아케이드</b></div>
+    <div class="stat">
+      <div>점수 <b id="s-score">0</b></div>
+      <div>최고 <b id="s-best">0</b></div>
+    </div>
+  </div>
+  <div class="stage" id="stage">
+    <!-- MENU -->
+    <div class="menu" id="menu">
+      <h1>외운 단어, <span>진짜로</span> 굳히기</h1>
+      <p>주제를 고르고, 모드를 골라 플레이하세요.</p>
+      <div class="topics" id="topic-tabs"></div>
+      <div class="cards">
+        <div class="gcard" tabindex="0" data-go="catch">
+          <div class="ic">🎣</div><h3>단어 낚시</h3>
+          <small>뜻을 보고, 떨어지는 여러 영단어 중 맞는 걸 받아내세요.</small>
+          <span class="tag">반응 · 인지</span>
+        </div>
+        <div class="gcard" tabindex="0" data-go="spell">
+          <div class="ic">⚡</div><h3>단어 고르기</h3>
+          <small>뜻과 예문을 보고 네 개 보기 중 맞는 단어를 고르세요.</small>
+          <span class="tag">3분 · 스피드</span>
+        </div>
+        <div class="gcard" tabindex="0" data-go="defense">
+          <div class="ic">🛡️</div><h3>의미 사수</h3>
+          <small>몰려오는 가짜 뜻 사이로 진짜 뜻만 조준해 쏘세요.</small>
+          <span class="tag">판단 · 순발력</span>
+        </div>
+        <div class="gcard" tabindex="0" data-go="match">
+          <div class="ic">🃏</div><h3>카드 뒤집기</h3>
+          <small>카드를 뒤집어 영어와 뜻의 짝을 맞추는 기억력 게임.</small>
+          <span class="tag">기억 · 매칭</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- CATCH -->
+    <div id="catch" class="hide">
+      <div class="hud">
+        <button class="btn ghost" data-home>← 나가기</button>
+        <div class="prompt"><small>이 뜻의 단어를 받으세요 · <span id="catch-prog">0 / 0</span></small><span id="catch-mean">—</span></div>
+        <div class="life" id="catch-life">❤️❤️❤️</div>
+      </div>
+      <div class="speedbar">
+        <span>속도</span>
+        <input type="range" id="catch-speed" min="1" max="8" step="0.5" value="3">
+        <span id="catch-speed-val">3</span>
+      </div>
+      <div class="combo" id="catch-combo"></div>
+      <canvas id="catch-cv"></canvas>
+    </div>
+
+    <!-- SPELL (단어 고르기) -->
+    <div id="spell" class="hide">
+      <div class="hud">
+        <button class="btn ghost" data-home>← 나가기</button>
+        <div class="prompt"><small>남은 시간</small><span id="spell-timer">3:00</span></div>
+        <div class="life" id="spell-solved">0 완성</div>
+      </div>
+      <div class="combo" id="spell-combo"></div>
+      <div class="spell">
+        <div class="mean" id="spell-mean">—</div>
+        <div class="ex" id="spell-ex"></div>
+        <div class="choices" id="spell-choices"></div>
+      </div>
+    </div>
+
+    <!-- DEFENSE -->
+    <div id="defense" class="hide">
+      <div class="hud">
+        <button class="btn ghost" data-home>← 나가기</button>
+        <div class="prompt"><small>이 단어의 진짜 뜻을 쏘세요 · <span id="def-prog">0 / 0</span></small><span id="def-word">—</span></div>
+        <div class="life" id="def-life">❤️❤️❤️</div>
+      </div>
+      <div class="combo" id="def-combo"></div>
+      <canvas id="def-cv"></canvas>
+    </div>
+
+    <!-- MATCH (카드 뒤집기) -->
+    <div id="match" class="hide">
+      <div class="match-hud">
+        <button class="btn ghost" data-home>← 나가기</button>
+        <div class="info">
+          <div>짝 <b id="match-pairs">0/0</b></div>
+          <div>횟수 <b id="match-moves">0</b></div>
+          <div>시간 <b id="match-time">0:00</b></div>
+        </div>
+      </div>
+      <div class="match-wrap"><div class="mboard" id="mboard"></div></div>
+    </div>
+
+    <!-- RESULT -->
+    <div class="overlay hide" id="result">
+      <h2 id="r-title">게임 종료</h2>
+      <div style="color:var(--dim);font-size:14px;letter-spacing:2px;font-weight:800">최종 점수</div>
+      <div class="big" id="r-score">0</div>
+      <div id="r-best" style="color:var(--amber);font-weight:800">최고 기록 0</div>
+      <div id="r-sub" style="color:var(--dim)"></div>
+      <div class="row">
+        <button class="btn primary" id="r-again">다시 하기</button>
+        <button class="btn ghost" id="r-menu">메뉴로</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===== 주제별 단어 데이터 =====
+   새 주제 추가: TOPICS 배열에 {name, words:[...]} 객체를 추가하면
+   메뉴에 자동으로 탭이 생깁니다. */
+const TOPICS = [
+  {
+    name: "환경",
+    words: [
+      // Pollution · 오염
+      {en:"recycle",          ko:"재활용하다",      ex:"We ___ paper and bottles."},
+      {en:"pollute",          ko:"오염시키다",      ex:"Cars ___ the air."},
+      {en:"acid rain",        ko:"산성비",          ex:"___ harms forests and lakes."},
+      {en:"harmful",          ko:"해로운",          ex:"Smoking is ___ to your health."},
+      {en:"chemical",         ko:"화학 물질; 화학의", ex:"The factory used toxic ___s."},
+      {en:"reduce",           ko:"줄이다",          ex:"We must ___ plastic waste."},
+      {en:"waste",            ko:"쓰레기; 낭비하다", ex:"Don't ___ water."},
+      {en:"dispose",          ko:"처리하다",        ex:"Please ___ of the trash safely."},
+      {en:"protect",          ko:"보호하다",        ex:"We should ___ the ocean."},
+      {en:"oil spill",        ko:"기름 유출",       ex:"The ___ killed many fish."},
+      {en:"contaminate",      ko:"오염시키다",      ex:"Waste can ___ the river."},
+      {en:"damage",           ko:"피해(를 주다)",   ex:"Pollution can ___ nature."},
+      {en:"greenhouse effect",ko:"온실 효과",       ex:"The ___ warms the planet."},
+      {en:"atmosphere",       ko:"대기; 분위기",    ex:"Gases fill the ___."},
+      {en:"temperature",      ko:"온도, 기온",      ex:"The ___ is rising fast."},
+      {en:"ozone layer",      ko:"오존층",          ex:"The ___ blocks harmful rays."},
+      {en:"ultraviolet rays", ko:"자외선",          ex:"___ can burn your skin."},
+      {en:"discard",          ko:"버리다",          ex:"Don't ___ batteries outside."},
+      {en:"sewage",           ko:"오수, 하수",      ex:"___ flows into the sea."},
+      {en:"toxic",            ko:"유독한",          ex:"The gas was very ___."},
+      {en:"almost",           ko:"거의",            ex:"It's ___ midnight."},
+      {en:"cause",            ko:"초래하다; 원인",  ex:"Smoking can ___ disease."},
+      {en:"product",          ko:"제품",            ex:"This ___ is eco-friendly."},
+      {en:"contain",          ko:"포함하다",        ex:"It ___s no plastic."},
+      {en:"save",             ko:"절약하다; 구하다", ex:"Turn off lights to ___ energy."},
+      {en:"quality",          ko:"(품)질",          ex:"The air ___ is poor today."},
+      {en:"severe",           ko:"심한",            ex:"We had ___ flooding."},
+      {en:"marine",           ko:"해양의",          ex:"___ animals need clean water."},
+      {en:"occur",            ko:"(사건 등이) 일어나다", ex:"Floods ___ every summer."},
+      {en:"effect",           ko:"효과; 결과",      ex:"Pollution has a bad ___."},
+      {en:"responsible",      ko:"책임이 있는",     ex:"We are ___ for the earth."},
+      {en:"surface",          ko:"표면",            ex:"Oil floats on the ___."},
+      {en:"shield",           ko:"방패(로 막다)",   ex:"The ozone layer ___s us."},
+      {en:"human",            ko:"인간(의)",        ex:"___ activity harms nature."},
+      {en:"include",          ko:"포함하다",        ex:"The plan ___s recycling."},
+      // Ecosystem · 생태계
+      {en:"preserve",         ko:"보존하다",        ex:"We must ___ the forest."},
+      {en:"tropical rainforest",ko:"열대 우림",     ex:"The ___ has many species."},
+      {en:"destruction",      ko:"파괴",            ex:"Forest ___ is a big problem."},
+      {en:"wildlife",         ko:"야생 생물",       ex:"___ needs safe habitats."},
+      {en:"rescue",           ko:"구조(하다)",      ex:"They ___d the injured bird."},
+      {en:"species",          ko:"종(種)",          ex:"Many ___ are dying out."},
+      {en:"conserve",         ko:"보호(보존)하다",  ex:"We should ___ energy."},
+      {en:"biodiversity",     ko:"생물의 다양성",   ex:"Forests support ___."},
+      {en:"extinct",          ko:"멸종된",          ex:"The dodo is ___."},
+      {en:"endanger",         ko:"위험에 빠뜨리다", ex:"Hunting can ___ animals."},
+      {en:"global warming",   ko:"지구 온난화",     ex:"___ melts the ice."},
+      {en:"habitat",          ko:"서식지",          ex:"Pandas lost their ___."},
+      {en:"organism",         ko:"유기체, 생물",    ex:"A cell is a tiny ___."},
+      {en:"call for",         ko:"~을 청하다",      ex:"They ___ stronger laws."},
+      {en:"creation",         ko:"창조",            ex:"The ___ of parks helps nature."},
+      {en:"global",           ko:"전세계의",        ex:"It's a ___ problem."},
+      {en:"foundation",       ko:"기초, 토대",      ex:"Trust is the ___ of teamwork."},
+      {en:"consideration",    ko:"고려, 고찰",      ex:"Give it careful ___."},
+      {en:"threaten",         ko:"위협하다",        ex:"Pollution ___s wildlife."},
+      {en:"disturb",          ko:"방해하다",        ex:"Don't ___ the animals."},
+      {en:"stability",        ko:"안정(성)",        ex:"Forests keep climate ___."},
+      // Resources · 자원
+      {en:"available",        ko:"이용 가능한",     ex:"Clean water isn't always ___."},
+      {en:"source",           ko:"원천, 공급원",    ex:"The sun is a ___ of energy."},
+      {en:"fossil fuel",      ko:"화석 연료",       ex:"Coal is a ___."},
+      {en:"coal",             ko:"석탄",            ex:"We burn ___ for power."},
+      {en:"exhaust",          ko:"고갈시키다",      ex:"We may ___ our resources."},
+      {en:"generate",         ko:"발생시키다",      ex:"Wind can ___ electricity."},
+      {en:"deplete",          ko:"고갈시키다",      ex:"Overuse ___s the soil."},
+      {en:"cope",             ko:"대처하다",        ex:"We must ___ with change."},
+      {en:"shortage",         ko:"부족",            ex:"There's a water ___."},
+      {en:"utilize",          ko:"이용하다",        ex:"___ solar power at home."},
+      {en:"reuse",            ko:"재사용하다",      ex:"Please ___ your bags."},
+      {en:"tide",             ko:"조수, 조류",      ex:"The ___ comes in at night."},
+    ]
+  },
+  {
+    name: "기술과 정보",
+    words: [
+      // Tool · 도구
+      {en:"function",       ko:"기능(하다)",      ex:"This button has one ___."},
+      {en:"mechanical",     ko:"기계의",          ex:"We fixed a ___ problem."},
+      {en:"device",         ko:"장치; 고안",      ex:"This ___ saves energy."},
+      {en:"efficiency",     ko:"효율성",          ex:"The new engine improved ___."},
+      {en:"develop",        ko:"개발하다",        ex:"They ___ed a new app."},
+      {en:"portable",       ko:"휴대용의",        ex:"I bought a ___ speaker."},
+      {en:"automatic",      ko:"자동의",          ex:"The door is ___."},
+      {en:"instrument",     ko:"기구; 악기",      ex:"A violin is a musical ___."},
+      {en:"monitor",        ko:"관찰하다",        ex:"Doctors ___ the patient."},
+      {en:"mechanic",       ko:"기계공, 수리공",  ex:"The ___ fixed my car."},
+      {en:"assemble",       ko:"조립하다",        ex:"We ___d the desk together."},
+      {en:"repair",         ko:"수리하다",        ex:"Can you ___ this phone?"},
+      {en:"inspect",        ko:"검사하다",        ex:"They ___ the machine daily."},
+      {en:"electric",       ko:"전기의",          ex:"He drives an ___ car."},
+      {en:"electronic",     ko:"전자의",          ex:"I sent an ___ message."},
+      {en:"equipment",      ko:"설비; 채비",      ex:"The lab has new ___."},
+      {en:"effectiveness",  ko:"유효성",          ex:"We tested its ___."},
+      {en:"relate",         ko:"관계가 있다",     ex:"These facts ___ to each other."},
+      {en:"level",          ko:"수준",            ex:"He reached a high ___."},
+      // Technology · 과학 기술
+      {en:"genetic engineering",ko:"유전 공학",   ex:"___ changes living things."},
+      {en:"technique",      ko:"기술, 기법",      ex:"She learned a new ___."},
+      {en:"clone",          ko:"복제하다",        ex:"Scientists can ___ cells."},
+      {en:"transformation", ko:"변형",            ex:"The city went through a ___."},
+      {en:"gene",           ko:"유전자",          ex:"Eye color comes from a ___."},
+      {en:"progress",       ko:"진보; 발전",      ex:"We made good ___ today."},
+      {en:"innovation",     ko:"혁신",            ex:"The phone was a big ___."},
+      {en:"inventive",      ko:"발명의",          ex:"She has an ___ mind."},
+      {en:"patent",         ko:"특허품; 특허권",  ex:"He filed a ___ for his idea."},
+      {en:"molecular",      ko:"분자의",          ex:"They study ___ biology."},
+      {en:"characteristic", ko:"특성; 특징적인",  ex:"Kindness is his main ___."},
+      {en:"represent",      ko:"나타내다, 대표하다", ex:"This chart ___s our sales."},
+      {en:"spirit",         ko:"정신, 영혼",      ex:"She has a strong ___."},
+      {en:"continue",       ko:"계속하다",        ex:"Please ___ your work."},
+      {en:"numerous",       ko:"다수의, 수많은",  ex:"There were ___ questions."},
+      {en:"industry",       ko:"산업",            ex:"The car ___ is growing."},
+      // Information Society · 정보화 사회
+      {en:"improve",        ko:"향상시키다",      ex:"Practice will ___ your skill."},
+      {en:"analyze",        ko:"분석하다",        ex:"We ___ the test results."},
+      {en:"classify",       ko:"분류하다",        ex:"Please ___ these books."},
+      {en:"transmit",       ko:"전송하다",        ex:"The radio ___s signals."},
+      {en:"data",           ko:"자료",            ex:"We collected a lot of ___."},
+      {en:"advance",        ko:"진보(하다), 발달(하다)", ex:"Medicine has ___d fast."},
+      {en:"e-commerce",     ko:"전자 상거래",     ex:"___ is growing every year."},
+      {en:"convenient",     ko:"편리한",          ex:"Online shopping is ___."},
+      {en:"wireless",       ko:"무선의",          ex:"I use ___ headphones."},
+      {en:"security",       ko:"보안; 안전",      ex:"Change your password for ___."},
+      {en:"connect",        ko:"접속하다",        ex:"___ your phone to Wi-Fi."},
+      {en:"network",        ko:"방송망, 네트워크", ex:"Our ___ is very fast."},
+      {en:"install",        ko:"설치하다",        ex:"I need to ___ this program."},
+      {en:"hacker",         ko:"해커",            ex:"A ___ attacked the website."},
+      {en:"access",         ko:"접근(하다)",      ex:"Students can ___ the library."},
+      {en:"operation",      ko:"조작; 수술",      ex:"The ___ of this machine is easy."},
+      {en:"information technology",ko:"정보 기술", ex:"He works in ___."},
+      {en:"surf the Internet",ko:"인터넷을 탐색하다", ex:"I ___ every evening."},
+      {en:"virtual reality",ko:"가상현실",        ex:"We tried a ___ game."},
+      {en:"telecommunicate",ko:"원격 통신으로 보내다", ex:"They ___ across countries."},
+      {en:"capability",     ko:"능력; 용량",      ex:"This computer has great ___."},
+      {en:"once",           ko:"일단 ~하면; 한번", ex:"___ you start, don't stop."},
+      {en:"virus",          ko:"바이러스",        ex:"A ___ slowed my computer."},
+      {en:"remote",         ko:"멀리 떨어진",     ex:"They live in a ___ village."},
+      {en:"perform",        ko:"수행하다; 공연하다", ex:"He will ___ on stage."},
+      {en:"various",        ko:"다양한",          ex:"We tried ___ methods."},
+      {en:"thanks to",      ko:"~ 덕분에",        ex:"___ your help, we finished."},
+      {en:"reality",        ko:"현실, 실제",      ex:"The dream became ___."},
+    ]
+  },
+  {
+    name: "과학",
+    words: [
+      // The Material World · 물질계
+      {en:"matter",       ko:"물질",            ex:"All ___ is made of atoms."},
+      {en:"material",     ko:"물질; 재료",      ex:"Wood is a natural ___."},
+      {en:"emit",         ko:"내뿜다",          ex:"The sun ___s light."},
+      {en:"scatter",      ko:"흩뿌리다",        ex:"The wind ___ed the leaves."},
+      {en:"gas",          ko:"가스, 기체",      ex:"Oxygen is a ___."},
+      {en:"molecule",     ko:"분자",            ex:"A water ___ has three atoms."},
+      {en:"dust",         ko:"먼지",            ex:"There is ___ on the shelf."},
+      {en:"particle",     ko:"입자",            ex:"Tiny ___s float in the air."},
+      {en:"atmosphere",   ko:"대기; 공기",      ex:"The ___ protects the earth."},
+      {en:"liquid",       ko:"액체",            ex:"Water is a ___."},
+      {en:"form",         ko:"형성하다; 형태",  ex:"Ice can ___ on the road."},
+      {en:"bubble",       ko:"거품",            ex:"A ___ rose to the surface."},
+      {en:"vapor",        ko:"증기",            ex:"Water turns into ___."},
+      {en:"boil",         ko:"끓다, 끓이다",    ex:"Please ___ the water."},
+      {en:"density",      ko:"밀도, 농도",      ex:"Ice has a low ___."},
+      {en:"mass",         ko:"질량; 덩어리",    ex:"We measured its ___."},
+      {en:"unit",         ko:"단위",            ex:"A meter is a ___ of length."},
+      {en:"volume",       ko:"부피, 양",        ex:"Find the ___ of the box."},
+      {en:"metal",        ko:"금속",            ex:"Iron is a strong ___."},
+      {en:"amount",       ko:"양, 액수",        ex:"Add a small ___ of salt."},
+      {en:"element",      ko:"원소; 요소",      ex:"Gold is a chemical ___."},
+      {en:"exist",        ko:"존재하다",        ex:"Life may ___ on other planets."},
+      {en:"atom",         ko:"원자",            ex:"An ___ is very small."},
+      {en:"wood",         ko:"목재",            ex:"The table is made of ___."},
+      {en:"mineral",      ko:"광물",            ex:"Salt is a natural ___."},
+      {en:"mixture",      ko:"혼합물",          ex:"Air is a ___ of gases."},
+      {en:"chemical",     ko:"화학의; 화학 제품", ex:"Don't touch that ___."},
+      {en:"substance",    ko:"물질",            ex:"This ___ is dangerous."},
+      {en:"nuclear",      ko:"핵의",            ex:"They study ___ energy."},
+      {en:"sufficient",   ko:"충분한",          ex:"We have ___ food."},
+      {en:"directly",     ko:"직접",            ex:"Tell me ___."},
+      {en:"result",       ko:"결과",            ex:"The ___ surprised us."},
+      {en:"precise",      ko:"정확한",          ex:"Give me a ___ number."},
+      {en:"per",          ko:"~당, ~마다",      ex:"It costs $5 ___ person."},
+      {en:"rarely",       ko:"좀처럼 ~ 않고",   ex:"He ___ eats meat."},
+      {en:"rather",       ko:"오히려; 다소",    ex:"It was ___ cold today."},
+      {en:"distinct",     ko:"별개의",          ex:"They are two ___ groups."},
+      // Scientific Research · 과학적 연구
+      {en:"detect",       ko:"탐지하다",        ex:"The alarm can ___ smoke."},
+      {en:"calculate",    ko:"계산하다",        ex:"___ the total cost."},
+      {en:"measure",      ko:"측정하다",        ex:"___ the length of the rope."},
+      {en:"isolate",      ko:"고립시키다",      ex:"They ___d the virus."},
+      {en:"combine",      ko:"결합하다",        ex:"___ the two liquids."},
+      {en:"scientific",   ko:"과학의, 과학적인", ex:"This is a ___ fact."},
+      {en:"discovery",    ko:"발견",            ex:"It was a great ___."},
+      {en:"research",     ko:"연구(하다)",      ex:"She does cancer ___."},
+      {en:"experimental", ko:"실험의, 실험적인", ex:"This is an ___ drug."},
+      {en:"explore",      ko:"탐험하다",        ex:"They ___ the deep sea."},
+      {en:"observe",      ko:"관찰하다; 준수하다", ex:"___ the stars tonight."},
+      {en:"telescope",    ko:"망원경",          ex:"He looked through the ___."},
+      {en:"method",       ko:"방법, 방식",      ex:"We used a new ___."},
+      {en:"formula",      ko:"공식",            ex:"Learn this math ___."},
+      {en:"process",      ko:"과정",            ex:"Learning is a slow ___."},
+      {en:"phenomenon",   ko:"현상",            ex:"Rainbows are a natural ___."},
+      {en:"define",       ko:"정의하다",        ex:"Can you ___ this word?"},
+      {en:"hypothesis",   ko:"가설",            ex:"We tested our ___."},
+      {en:"theory",       ko:"이론",            ex:"He explained the ___."},
+      {en:"prove",        ko:"증명하다",        ex:"Can you ___ it is true?"},
+      {en:"principle",    ko:"원리, 원칙",      ex:"This machine works on one ___."},
+      {en:"approach",     ko:"접근(하다)",      ex:"We need a new ___."},
+      {en:"split",        ko:"쪼개다",          ex:"___ the wood in half."},
+      {en:"laboratory",   ko:"실험실",          ex:"They work in a ___."},
+      {en:"fission",      ko:"분열",            ex:"Nuclear ___ makes energy."},
+      {en:"armchair",     ko:"안락의자; 관념적인", ex:"He sat in the ___."},
+      {en:"considerable", ko:"상당한",          ex:"It took ___ time."},
+      {en:"a number of",  ko:"다수의",          ex:"___ students joined."},
+      {en:"derive",       ko:"끌어내다",        ex:"We ___ energy from the sun."},
+      {en:"ultimate",     ko:"궁극적인, 최종의", ex:"That is our ___ goal."},
+      {en:"goal",         ko:"목적, 목표",      ex:"My ___ is to pass the test."},
+      {en:"conservation", ko:"보존, 보호",      ex:"___ of water is important."},
+      {en:"suggest",      ko:"시사하다; 제안하다", ex:"I ___ we start now."},
+    ]
+  },
+  {
+    name: "심리 I",
+    words: [
+      // Psychology · 심리
+      {en:"disturbance",  ko:"(마음의) 동요, 불안", ex:"He felt a deep ___."},
+      {en:"conflict",     ko:"갈등; 대립",      ex:"They had a ___ over money."},
+      {en:"unconscious",  ko:"의식하지 못하는", ex:"It was an ___ habit."},
+      {en:"personality",  ko:"성격, 개성",      ex:"She has a warm ___."},
+      {en:"relieve",      ko:"덜다; 안심시키다", ex:"Music can ___ stress."},
+      {en:"tension",      ko:"긴장",            ex:"There was ___ in the room."},
+      {en:"upset",        ko:"혼란; (기분이) 상한", ex:"He was ___ about the news."},
+      {en:"pretend",      ko:"~인 체하다",      ex:"Don't ___ to be busy."},
+      {en:"hate",         ko:"싫어하다, 미워하다", ex:"I ___ waiting in line."},
+      {en:"fantasy",      ko:"공상, 환상",      ex:"He lives in a ___."},
+      {en:"fascinate",    ko:"매혹하다",        ex:"Space stories ___ me."},
+      {en:"mysterious",   ko:"신비로운",        ex:"She gave a ___ smile."},
+      {en:"fantastic",    ko:"환상적인; 멋진",  ex:"The show was ___."},
+      {en:"nostalgic",    ko:"향수의",          ex:"The song made me ___."},
+      {en:"instinctive",  ko:"본능적인",        ex:"Fear is an ___ feeling."},
+      {en:"mental",       ko:"마음의, 정신의",  ex:"___ health matters."},
+      {en:"impulse",      ko:"충동; 추진(력)",  ex:"He bought it on ___."},
+      {en:"desire",       ko:"욕망, 욕구",      ex:"She has a strong ___ to win."},
+      {en:"perplex",      ko:"당황하게 하다",   ex:"The question ___ed me."},
+      {en:"annoy",        ko:"괴롭히다",        ex:"Loud noise ___s me."},
+      {en:"contempt",     ko:"경멸",            ex:"He looked at me with ___."},
+      {en:"hostility",    ko:"적의, 적대감",    ex:"She showed open ___."},
+      {en:"affection",    ko:"애정",            ex:"He shows ___ for his dog."},
+      {en:"tempt",        ko:"유혹하다",        ex:"Cake always ___s me."},
+      {en:"remind",       ko:"상기시키다",      ex:"Please ___ me tomorrow."},
+      {en:"decisive",     ko:"단호한",          ex:"She was ___ about leaving."},
+      {en:"hesitate",     ko:"망설이다, 주저하다", ex:"Don't ___ to ask."},
+      {en:"yearn",        ko:"갈망하다",        ex:"They ___ for peace."},
+      {en:"due to",       ko:"~ 때문에",        ex:"We stayed home ___ rain."},
+      {en:"hide",         ko:"숨다; 숨기다",    ex:"Don't ___ your feelings."},
+      {en:"fiction",      ko:"소설; 허구",      ex:"I enjoy science ___."},
+      {en:"magical",      ko:"마법의; 마술적인", ex:"It was a ___ night."},
+      {en:"region",       ko:"영역; 지역",      ex:"This ___ is very dry."},
+      {en:"constantly",   ko:"끊임없이",        ex:"He ___ checks his phone."},
+      {en:"arise",        ko:"생기다",          ex:"Problems may ___ later."},
+      {en:"gesture",      ko:"몸짓, 손짓",      ex:"He made a friendly ___."},
+      {en:"allow",        ko:"허락하다",        ex:"They ___ pets here."},
+      {en:"variety",      ko:"다양성",          ex:"We need more ___."},
+      {en:"approval",     ko:"호의; 찬성",      ex:"She nodded in ___."},
+      // Emotion · 감정
+      {en:"arrogance",    ko:"거만, 오만",      ex:"His ___ upset everyone."},
+      {en:"pride",        ko:"자부심; 자랑",    ex:"She felt ___ in her work."},
+      {en:"cheerful",     ko:"기분이 좋은, 명랑한", ex:"He has a ___ voice."},
+      {en:"satisfied",    ko:"만족한",          ex:"I'm ___ with the result."},
+      {en:"gloomy",       ko:"우울한",          ex:"The weather makes me ___."},
+      {en:"miserable",    ko:"슬픈; 비참한",    ex:"He felt ___ after losing."},
+      {en:"anxious",      ko:"걱정하는; 갈망하는", ex:"She is ___ about the exam."},
+      {en:"depressed",    ko:"낙담한",          ex:"He looked ___ all day."},
+      {en:"desperate",    ko:"절망적인",        ex:"They were ___ for help."},
+      {en:"consolation",  ko:"위안, 위로",      ex:"Her words were a ___."},
+      {en:"regret",       ko:"후회(하다)",      ex:"I ___ saying that."},
+      {en:"anger",        ko:"화",              ex:"He couldn't hide his ___."},
+      {en:"fear",         ko:"공포, 두려움",    ex:"She has a ___ of heights."},
+      {en:"frustration",  ko:"좌절(감)",        ex:"He shouted in ___."},
+      {en:"embarrassment",ko:"당혹, 당황",      ex:"Her face turned red with ___."},
+      {en:"disappointment",ko:"실망",           ex:"The loss was a big ___."},
+      {en:"jealousy",     ko:"질투, 시기",      ex:"___ ruined their friendship."},
+      {en:"loneliness",   ko:"외로움, 고독",    ex:"He felt deep ___."},
+      {en:"boredom",      ko:"지루함, 권태",    ex:"___ made him sleepy."},
+      {en:"sadness",      ko:"슬픔",            ex:"Her eyes showed ___."},
+      {en:"afraid",       ko:"두려워하여",      ex:"I'm ___ of the dark."},
+      {en:"nervous",      ko:"초조한, 긴장한",  ex:"He felt ___ before the test."},
+      {en:"frightened",   ko:"무서워하여",      ex:"The dog looked ___."},
+      {en:"vulnerable",   ko:"상처받기 쉬운",   ex:"Children are ___."},
+      {en:"perhaps",      ko:"아마도",          ex:"___ she will come later."},
+      {en:"shadow",       ko:"그림자",          ex:"My ___ was long."},
+    ]
+  },
+  {
+    name: "경제 I",
+    words: [
+      // Product · 상품
+      {en:"exchange",     ko:"교환(하다)",      ex:"Can I ___ this shirt?"},
+      {en:"goods",        ko:"재화; 상품",      ex:"The store sells many ___."},
+      {en:"service",      ko:"용역",            ex:"They offer a repair ___."},
+      {en:"enable",       ko:"가능하게 하다",   ex:"This app ___s fast payment."},
+      // Production & Consumption · 생산과 소비
+      {en:"labor",        ko:"노동(자); 노동하다", ex:"The factory needs more ___."},
+      {en:"supply",       ko:"공급(하다)",      ex:"They ___ water to the town."},
+      {en:"demand",       ko:"수요; 요구(하다)", ex:"___ for phones is high."},
+      {en:"industry",     ko:"산업; 근면",      ex:"The film ___ is growing."},
+      {en:"recent",       ko:"최근의",          ex:"I read a ___ report."},
+      {en:"survey",       ko:"조사(하다); 개관(하다)", ex:"We did a customer ___."},
+      {en:"gap",          ko:"격차",            ex:"There is a wide income ___."},
+      // Economic Activities · 경제 활동
+      {en:"import",       ko:"수입(하다)",      ex:"We ___ coffee from Brazil."},
+      {en:"export",       ko:"수출(하다)",      ex:"Korea ___s many cars."},
+      {en:"produce",      ko:"생산하다",        ex:"This farm ___s apples."},
+      {en:"transaction",  ko:"거래; 처리",      ex:"The ___ took one minute."},
+      {en:"retail",       ko:"소매(의); 소매하다", ex:"She works in ___."},
+      {en:"commerce",     ko:"상업, 무역",      ex:"Online ___ is growing."},
+      {en:"balance",      ko:"균형; 수지",      ex:"Keep a good ___."},
+      {en:"customer",     ko:"고객, 손님",      ex:"The ___ asked for help."},
+      {en:"consumer",     ko:"소비자",          ex:"___s want lower prices."},
+      {en:"wholesaler",   ko:"도매상인",        ex:"We buy from a ___."},
+      {en:"distributor",  ko:"유통업자; 분배자", ex:"They are our main ___."},
+      {en:"retailer",     ko:"소매상인",        ex:"The ___ sells to shoppers."},
+      {en:"purchase",     ko:"구입(하다)",      ex:"I made a big ___ today."},
+      {en:"item",         ko:"물품",            ex:"Each ___ costs $10."},
+      {en:"refund",       ko:"환불(하다)",      ex:"Can I get a ___?"},
+      {en:"receipt",      ko:"영수증; 수령",    ex:"Keep your ___."},
+      {en:"objective",    ko:"목적; 객관적인",  ex:"Our main ___ is growth."},
+      {en:"vital",        ko:"중대한; 생명의",  ex:"Water is ___ for life."},
+      {en:"whether A or B",ko:"A이든 B이든",    ex:"___ rain or shine, we go."},
+      {en:"shift",        ko:"이동하다; 바꾸다", ex:"Prices may ___ soon."},
+      {en:"favor",        ko:"이익; 호의; 부탁", ex:"Can you do me a ___?"},
+      {en:"realization",  ko:"인식, 자각; 실현", ex:"The ___ came too late."},
+      {en:"relationship", ko:"관계, 관련",      ex:"They have a good ___."},
+      // Firm · 기업
+      {en:"employment",   ko:"고용",            ex:"___ rates are rising."},
+      {en:"contract",     ko:"계약(하다)",      ex:"He signed the ___."},
+      {en:"incentive",    ko:"포상금; 장려하는", ex:"Bonuses are a good ___."},
+      {en:"compensation", ko:"보상",            ex:"They received ___ for damage."},
+      {en:"expire",       ko:"만기가 되다",     ex:"My card will ___ soon."},
+      {en:"valid",        ko:"유효한; 타당한",  ex:"This ticket is still ___."},
+      {en:"business",     ko:"사업; 장사; 일",  ex:"She runs a small ___."},
+      {en:"competition",  ko:"경쟁",            ex:"The ___ is very strong."},
+      {en:"control",      ko:"지배(하다), 통제(하다)", ex:"They ___ the market."},
+      {en:"develop",      ko:"개발하다; 발전시키다", ex:"We ___ new products."},
+      {en:"a price break",ko:"가격 파괴(인하)", ex:"They offered ___ this week."},
+      {en:"order",        ko:"주문(하다); 명령(하다)", ex:"I'd like to ___ two."},
+      {en:"quantity",     ko:"양, 수량",        ex:"Please check the ___."},
+      {en:"cost",         ko:"비용; (비용이) 들다", ex:"The ___ is too high."},
+      {en:"store",        ko:"저장하다; 가게",  ex:"___ the files safely."},
+      {en:"ship",         ko:"수송하다; 배",    ex:"We ___ goods worldwide."},
+      {en:"bill",         ko:"청구하다; 청구서", ex:"Please pay the ___."},
+      {en:"company",      ko:"회사; 친구; 일행", ex:"He works for a big ___."},
+      {en:"possess",      ko:"소유하다",        ex:"They ___ two houses."},
+      {en:"manufacture",  ko:"제조(하다)",      ex:"They ___ car parts."},
+      {en:"advertise",    ko:"광고하다",        ex:"They ___ on TV."},
+      {en:"promote",      ko:"촉진하다; 승진시키다", ex:"They ___d him to manager."},
+      {en:"currently",    ko:"현재는, 지금은",  ex:"He is ___ studying abroad."},
+      {en:"ensure",       ko:"보증하다, 확실하게 하다", ex:"___ the door is locked."},
+      {en:"exclusive",    ko:"독점적인; 배타적인", ex:"They signed an ___ deal."},
+    ]
+  },
+];
+
+/* 현재 선택된 주제의 단어 배열 */
+let currentTopic = 0;
+let WORDS = TOPICS[currentTopic].words;
+
+/* ===== 공통 ===== */
+const $=s=>document.querySelector(s);
+const stage=$('#stage');
+let best=0, score=0, preBest=0;
+const setScore=v=>{score=v;$('#s-score').textContent=v;if(v>best){best=v;$('#s-best').textContent=v;}};
+const shuffle=a=>a.map(x=>[Math.random(),x]).sort((p,q)=>p[0]-q[0]).map(x=>x[1]);
+const pick=(arr,n,not)=>shuffle(arr.filter(w=>w!==not)).slice(0,n);
+let raf=null, current=null;
+
+function show(id){
+  ['menu','catch','spell','defense','match'].forEach(x=>$('#'+x).classList.add('hide'));
+  $('#result').classList.add('hide');
+  $('#'+id).classList.remove('hide');
+}
+function stopLoop(){ if(raf){cancelAnimationFrame(raf);raf=null;} }
+function goHome(){ stopLoop(); if(spellTick)clearInterval(spellTick); if(typeof matchTimer!=='undefined'&&matchTimer)clearInterval(matchTimer); show('menu'); }
+document.querySelectorAll('[data-home]').forEach(b=>b.onclick=goHome);
+document.querySelectorAll('.gcard').forEach(c=>{
+  const go=()=>start(c.dataset.go);
+  c.onclick=go;
+  c.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go();}};
+});
+
+/* ===== 주제 탭 ===== */
+function renderTopics(){
+  const wrap=$('#topic-tabs');wrap.innerHTML='';
+  TOPICS.forEach((t,i)=>{
+    const b=document.createElement('button');
+    b.className='topic'+(i===currentTopic?' active':'');
+    b.innerHTML=t.name+' <small>('+t.words.length+')</small>';
+    b.onclick=()=>{
+      currentTopic=i;WORDS=TOPICS[i].words;
+      [...wrap.children].forEach((x,j)=>x.classList.toggle('active',j===i));
+    };
+    wrap.appendChild(b);
+  });
+}
+renderTopics();
+function popCombo(el,txt){
+  el.textContent=txt;el.style.transition='none';el.style.opacity='1';el.style.transform='translateX(-50%) scale(1.3)';
+  requestAnimationFrame(()=>{el.style.transition='all .6s';el.style.opacity='0';el.style.transform='translateX(-50%) scale(1)';});
+}
+function result(title,sub){
+  stopLoop(); if(spellTick)clearInterval(spellTick);
+  $('#r-title').textContent=title;$('#r-score').textContent=score;
+  $('#r-best').textContent=(score>preBest?'🏆 신기록!':'최고 기록 '+best);
+  $('#r-sub').textContent=sub;
+  $('#result').classList.remove('hide');
+}
+$('#r-menu').onclick=goHome;
+$('#r-again').onclick=()=>start(current);
+
+function start(mode){
+  current=mode; preBest=best; setScore(0); show(mode);
+  if(mode==='catch')startCatch();
+  if(mode==='spell')startSpell();
+  if(mode==='defense')startDefense();
+  if(mode==='match')startMatch();
+}
+
+/* ===== 1) 단어 낚시 ===== */
+function startCatch(){
+  const cv=$('#catch-cv'),ctx=cv.getContext('2d');
+  const DPR=Math.min(window.devicePixelRatio||1,2);
+  let W,H,LANES,BOXW,BOXH,FS;
+  const fit=()=>{
+    W=cv.clientWidth;H=cv.clientHeight;
+    cv.width=W*DPR;cv.height=H*DPR;
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+    LANES = W<420 ? 3 : 4;                    // fewer lanes on narrow phones
+    BOXW  = Math.min(150, Math.max(78, W/LANES-10));
+    BOXH  = W<420 ? 38 : 44;
+    FS    = W<420 ? 15 : 19;
+  };
+  fit();requestAnimationFrame(fit);
+  window.onresize=fit;
+  let life=3, target=null, drops=[], basket, combo=0;
+  let pxPerSec=140;                            // speed in px per second
+  let queue=shuffle(WORDS.slice()), cleared=0;
+  const total=WORDS.length;
+  // speed slider -> px/sec
+  const sp=$('#catch-speed'), spv=$('#catch-speed-val');
+  const applySpeed=()=>{pxPerSec=parseFloat(sp.value)*40;spv.textContent=sp.value;};
+  sp.oninput=applySpeed; applySpeed();
+  const pickTarget=()=>{
+    if(queue.length===0){ result('낚시 클리어!','단어 '+total+'개 모두 성공!'); return false; }
+    target=queue.shift(); $('#catch-mean').textContent=target.ko;
+    $('#catch-prog').textContent=cleared+' / '+total;
+    return true;
+  };
+  const laneX=lane=>{
+    const half=BOXW/2+4;
+    return Math.max(half, Math.min(W-half, (lane+.5)*W/LANES));
+  };
+  const spawn=(startY)=>{
+    drops.push({w:shuffle(WORDS)[0],lane:Math.floor(Math.random()*LANES),y:startY});
+  };
+  basket={x:W/2,w:60};
+  const setLife=()=>$('#catch-life').textContent='❤️'.repeat(life)||'💀';
+  pickTarget();setLife();
+  for(let k=0;k<6;k++) spawn(-60-k*150);
+  const move=e=>{const r=cv.getBoundingClientRect();const cx=(e.touches?e.touches[0].clientX:e.clientX)-r.left;basket.x=Math.max(basket.w/2,Math.min(W-basket.w/2,cx));};
+  cv.onmousemove=move;cv.ontouchmove=e=>{e.preventDefault();move(e);};
+  cv.ontouchstart=e=>{e.preventDefault();move(e);};
+  // draw a word, shrinking the font until it fits inside the box
+  const drawWord=(txt,x,y)=>{
+    let size=FS;
+    ctx.font='700 '+size+'px Trebuchet MS';
+    while(ctx.measureText(txt).width>BOXW-14 && size>9){
+      size--; ctx.font='700 '+size+'px Trebuchet MS';
+    }
+    ctx.fillStyle='#eaf0ff';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(txt,x,y);
+  };
+  let last=performance.now();
+  const loop=(now)=>{
+    const dt=Math.min((now-last)/1000,0.05); last=now;   // cap dt after tab switch
+    ctx.clearRect(0,0,W,H);
+    const by=H-70;
+    drops.forEach(d=>{
+      d.y+=pxPerSec*dt;
+      const x=laneX(d.lane);
+      ctx.shadowBlur=0;
+      ctx.fillStyle='#141c30';
+      ctx.strokeStyle='#243050';
+      ctx.lineWidth=2;roundRect(ctx,x-BOXW/2,d.y-BOXH/2,BOXW,BOXH,10);ctx.fill();ctx.stroke();
+      drawWord(d.w.en,x,d.y);
+    });
+    // basket
+    ctx.fillStyle='#3fe0d0';roundRect(ctx,basket.x-basket.w/2,by,basket.w,18,9);ctx.fill();
+    ctx.fillStyle='rgba(63,224,208,.30)';roundRect(ctx,basket.x-basket.w/2,by-5,basket.w,7,4);ctx.fill();
+    // collisions
+    for(let i=drops.length-1;i>=0;i--){
+      const d=drops[i]; const x=laneX(d.lane);
+      if(d.y>by-24&&d.y<by+34&&Math.abs(x-basket.x)<basket.w/2+BOXW/2){
+        if(d.w===target){
+          combo++;cleared++;setScore(score+10+combo*2);
+          popCombo($('#catch-combo'),'+'+(10+combo*2)+(combo>1?' x'+combo:''));
+          if(!pickTarget())return;
+        }else{
+          combo=0;cleared++;life--;setLife();popCombo($('#catch-combo'),'❌ 오답');
+          if(life<=0){result('낚시 종료','오답을 피해 정답만 받으세요!');return;}
+          if(!pickTarget())return;
+        }
+        d.y=-40;d.lane=Math.floor(Math.random()*LANES);d.w=shuffle(WORDS)[0];
+        continue;
+      }
+      if(d.y>H+40){
+        if(d.w===target){
+          combo=0;popCombo($('#catch-combo'),'↓ 놓침');
+          queue.push(target);
+          if(!pickTarget())return;
+        }
+        d.y=-40;d.lane=Math.floor(Math.random()*LANES);d.w=shuffle(WORDS)[0];
+      }
+    }
+    if(!drops.some(d=>d.w===target)){
+      const cand=drops.filter(d=>d.y<0).sort((a,b)=>a.y-b.y)[0]||drops[0];
+      if(cand)cand.w=target;
+    }
+    raf=requestAnimationFrame(loop);
+  };
+  raf=requestAnimationFrame(loop);
+}
+
+/* ===== 2) 단어 고르기 ===== */
+let spellTick=null;
+function startSpell(){
+  let time=180, solved=0, cur=null, locked=false;
+  const timerEl=$('#spell-timer'),solvedEl=$('#spell-solved');
+  const fmt=t=>Math.floor(t/60)+':'+String(t%60).padStart(2,'0');
+  const loadWord=()=>{
+    locked=false;
+    cur=shuffle(WORDS)[0];
+    $('#spell-mean').textContent=cur.ko;
+    $('#spell-ex').textContent=cur.ex?'"'+cur.ex.replace(/_+/g,'____')+'"':'';
+    const opts=shuffle([cur,...pick(WORDS,Math.min(3,WORDS.length-1),cur)]);
+    const box=$('#spell-choices');box.innerHTML='';
+    opts.forEach(w=>{
+      const b=document.createElement('button');
+      b.className='choice';b.textContent=w.en;
+      b.onclick=()=>choose(w,b);
+      box.appendChild(b);
+    });
+  };
+  const choose=(w,btn)=>{
+    if(locked)return; locked=true;
+    const buttons=[...$('#spell-choices').children];
+    if(w===cur){
+      btn.classList.add('correct');
+      solved++;solvedEl.textContent=solved+' 완성';
+      setScore(score+20);popCombo($('#spell-combo'),'✓ +20');
+      setTimeout(loadWord,450);
+    }else{
+      btn.classList.add('wrong');
+      // reveal the correct one
+      buttons.forEach(b=>{if(b.textContent===cur.en)b.classList.add('correct');});
+      popCombo($('#spell-combo'),'✗');
+      setTimeout(loadWord,750);
+    }
+    buttons.forEach(b=>b.disabled=true);
+  };
+  solvedEl.textContent='0 완성';
+  timerEl.textContent=fmt(time);
+  loadWord();
+  spellTick=setInterval(()=>{
+    time--;timerEl.textContent=fmt(time);
+    if(time<=0){clearInterval(spellTick);result('시간 종료',solved+'개 완성!');}
+  },1000);
+}
+
+/* ===== 3) 의미 사수 ===== */
+function startDefense(){
+  const cv=$('#def-cv'),ctx=cv.getContext('2d');
+  const DPR=Math.min(window.devicePixelRatio||1,2);
+  let W,H,FS;
+  const fit=()=>{
+    W=cv.clientWidth;H=cv.clientHeight;
+    cv.width=W*DPR;cv.height=H*DPR;
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+    FS = W<420 ? 15 : 18;
+  };
+  fit();requestAnimationFrame(fit);
+  window.onresize=fit;
+  let life=3, target=null, enemies=[], spawnAcc=0;
+  let pxPerSec=48;                 // constant fall speed (px/sec)
+  let queue=shuffle(WORDS.slice()), cleared=0;
+  const total=WORDS.length;
+  const setLife=()=>$('#def-life').textContent='❤️'.repeat(life)||'💀';
+  const coreY=()=>H-70;
+  const newTarget=()=>{
+    if(queue.length===0){ result('사수 클리어!','단어 '+total+'개 모두 방어!'); return false; }
+    target=queue.shift();
+    $('#def-word').textContent=target.en;
+    $('#def-prog').textContent=cleared+' / '+total;
+    return true;
+  };
+  // measure a label at the current font size
+  const labelW=txt=>{ctx.font='700 '+FS+'px Trebuchet MS';return ctx.measureText(txt).width+28;};
+  const spawn=()=>{
+    const isReal=Math.random()<0.45;
+    const w=isReal?target:pick(WORDS,1,target)[0];
+    if(!w)return;
+    const bw=labelW(w.ko);
+    const half=bw/2+6;
+    const x=half+Math.random()*Math.max(1,W-half*2);   // always fully on screen
+    enemies.push({txt:w.ko,real:w===target,x,y:-30,vy:pxPerSec*(0.85+Math.random()*0.4)});
+  };
+  const fire=e=>{
+    const r=cv.getBoundingClientRect();
+    const mx=(e.touches?e.touches[0].clientX:e.clientX)-r.left;
+    const my=(e.touches?e.touches[0].clientY:e.clientY)-r.top;
+    for(let i=enemies.length-1;i>=0;i--){
+      const en=enemies[i];
+      const hw=labelW(en.txt)/2;
+      if(Math.abs(en.x-mx)<hw+10&&Math.abs(en.y-my)<28){
+        if(en.real){cleared++;setScore(score+15);popCombo($('#def-combo'),'💥 +15');enemies=enemies.filter(x=>!x.real);if(!newTarget())return;}
+        else{life--;setLife();popCombo($('#def-combo'),'✗ 가짜였음');enemies.splice(i,1);if(life<=0){result('방어 실패','진짜 뜻만 조준!');return;}}
+        return;
+      }
+    }
+  };
+  cv.onclick=fire;cv.ontouchstart=e=>{e.preventDefault();fire(e);};
+  newTarget();setLife();enemies=[];
+  let last=performance.now();
+  const loop=(now)=>{
+    const dt=Math.min((now-last)/1000,0.05); last=now;
+    ctx.clearRect(0,0,W,H);
+    spawnAcc+=dt;
+    if(spawnAcc>1.2){spawnAcc=0;spawn();}
+    // core line
+    ctx.strokeStyle='rgba(198,255,74,.25)';ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(0,coreY()+20);ctx.lineTo(W,coreY()+20);ctx.stroke();
+    for(let i=enemies.length-1;i>=0;i--){
+      const en=enemies[i];
+      en.y+=en.vy*dt;
+      const bw=labelW(en.txt);
+      // keep the box fully inside the screen
+      en.x=Math.max(bw/2+4,Math.min(W-bw/2-4,en.x));
+      ctx.fillStyle='#141c30';ctx.strokeStyle='#5a6b95';ctx.lineWidth=2;
+      roundRect(ctx,en.x-bw/2,en.y-18,bw,36,10);ctx.fill();ctx.stroke();
+      ctx.fillStyle='#eaf0ff';ctx.font='700 '+FS+'px Trebuchet MS';
+      ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(en.txt,en.x,en.y);
+      if(en.y>coreY()){
+        if(en.real){popCombo($('#def-combo'),'↓ 놓침');enemies=enemies.filter(x=>!x.real);if(!newTarget())return;}
+        else enemies.splice(i,1);
+      }
+    }
+    if(!enemies.some(e=>e.real)&&Math.random()<0.02) spawn();
+    raf=requestAnimationFrame(loop);
+  };
+  raf=requestAnimationFrame(loop);
+}
+
+function roundRect(ctx,x,y,w,h,r){
+  ctx.beginPath();ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();
+}
+
+/* ===== 4) 카드 뒤집기 ===== */
+let matchTimer=null, matchBest={};
+function startMatch(){
+  clearInterval(matchTimer);
+  const PAIRS=Math.min(8, WORDS.length);   // 한 판 최대 8쌍
+  const picks=shuffle(WORDS.slice()).slice(0,PAIRS);
+  let deck=[];
+  picks.forEach((w,i)=>{
+    deck.push({id:i,type:'en',text:w.en});
+    deck.push({id:i,type:'ko',text:w.ko});
+  });
+  deck=shuffle(deck);
+
+  let msec=0, mmoves=0, mmatched=0, mfirst=null, mlock=false;
+  const total=PAIRS;
+  const topicName=(typeof TOPICS!=='undefined'&&TOPICS[currentTopic])?TOPICS[currentTopic].name:'단어';
+  $('#match-pairs').textContent='0/'+total;
+  $('#match-moves').textContent='0';
+  $('#match-time').textContent='0:00';
+
+  const n=deck.length;
+  const cols = n<=12 ? 4 : (n<=16 ? 4 : 5);
+  const board=$('#mboard'); board.innerHTML='';
+  board.style.gridTemplateColumns='repeat('+cols+',1fr)';
+
+  const fmtT=t=>Math.floor(t/60)+':'+String(t%60).padStart(2,'0');
+
+  deck.forEach(card=>{
+    const el=document.createElement('button');el.className='mcard';
+    el.innerHTML='<div class="minner"><div class="mface back"></div>'+
+      '<div class="mface front '+card.type+'">'+card.text+'</div></div>';
+    el.onclick=()=>flipCard(el,card);
+    board.appendChild(el);
+    // 긴 단어 자동 축소
+    const front=el.querySelector('.mface.front');
+    const len=card.text.length;
+    if(len>8) front.style.fontSize=(len>12?'11px':'13px');
+  });
+
+  function flipCard(el,card){
+    if(mlock||el.classList.contains('flipped')||el.classList.contains('matched'))return;
+    el.classList.add('flipped');
+    if(!mfirst){mfirst={el,card};return;}
+    mmoves++; $('#match-moves').textContent=mmoves;
+    const a=mfirst, b={el,card}; mfirst=null;
+    if(a.card.id===b.card.id && a.card.type!==b.card.type){
+      a.el.classList.add('matched'); b.el.classList.add('matched');
+      mmatched++; $('#match-pairs').textContent=mmatched+'/'+total;
+      if(mmatched===total) matchWin();
+    }else{
+      mlock=true;
+      a.el.classList.add('shake'); b.el.classList.add('shake');
+      setTimeout(()=>{
+        a.el.classList.remove('flipped','shake');
+        b.el.classList.remove('flipped','shake');
+        mlock=false;
+      },700);
+    }
+  }
+  function matchWin(){
+    clearInterval(matchTimer);
+    const key=topicName;
+    const isBest = matchBest[key]==null || msec<matchBest[key];
+    if(isBest) matchBest[key]=msec;
+    // 기존 결과 오버레이 활용
+    $('#r-title').textContent='카드 뒤집기 완성! 🎉';
+    $('#r-score').textContent=fmtT(msec);
+    $('#r-best').textContent = isBest ? '🏆 신기록!' : '최고 기록 '+fmtT(matchBest[key]);
+    $('#r-sub').textContent = total+'쌍 · '+mmoves+'번 만에';
+    $('#result').classList.remove('hide');
+  }
+
+  clearInterval(matchTimer);
+  matchTimer=setInterval(()=>{msec++;$('#match-time').textContent=fmtT(msec);},1000);
+}
+
+</script>
+</body>
+</html>

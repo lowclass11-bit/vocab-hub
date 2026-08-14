@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>어휘 실험실</title>
+<style>
+:root{
+  --ink:#0B0E14; --panel:#161B26; --panel2:#1E2534; --line:#2C3547;
+  --bone:#E8E4DA; --dim:#7C8AA5;
+  --amber:#E0A75E; --cyan:#5BC8C0; --rose:#E0576B; --violet:#9B8CE8; --lime:#A8C85B;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:var(--ink); color:var(--bone);
+  font-family:"Helvetica Neue",Arial,system-ui,sans-serif;
+  overflow:hidden; overscroll-behavior:none; touch-action:manipulation;
+  -webkit-font-smoothing:antialiased;
+}
+canvas{touch-action:none}
+#app{height:100dvh;display:flex;flex-direction:column}
+
+/* top bar */
+.topbar{display:flex;align-items:center;gap:12px;padding:10px 16px;
+  border-bottom:1px solid var(--line);background:#10141D}
+.brand{font-weight:800;letter-spacing:.14em;font-size:13px;text-transform:uppercase}
+.brand b{color:var(--amber)}
+.readout{margin-left:auto;display:flex;gap:16px;
+  font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:var(--dim)}
+.readout b{color:var(--bone);font-size:15px}
+
+.stage{flex:1;position:relative;overflow:hidden}
+
+/* buttons */
+.btn{cursor:pointer;border:none;border-radius:10px;padding:13px 20px;
+  font-family:inherit;font-weight:700;font-size:15px;transition:filter .15s,transform .06s}
+.btn:active{transform:translateY(1px)}
+.btn.solid{background:var(--amber);color:#0B0E14}
+.btn.ghost{background:transparent;color:var(--bone);border:1px solid var(--line)}
+.btn:hover{filter:brightness(1.1)}
+.btn:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+.btn:disabled{opacity:.4;cursor:default}
+
+/* menu */
+.menu{position:absolute;inset:0;overflow-y:auto;padding:26px 18px 40px}
+.menu-head{max-width:640px;margin:0 auto 22px}
+.menu-head h1{font-size:clamp(26px,7vw,40px);font-weight:800;letter-spacing:-.02em;line-height:1.05}
+.menu-head h1 em{font-style:normal;color:var(--amber)}
+.menu-head p{color:var(--dim);margin-top:10px;font-size:14px;line-height:1.6}
+.grid{display:grid;gap:12px;max-width:640px;margin:0 auto;
+  grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+  padding:16px;cursor:pointer;text-align:left;transition:border-color .15s,transform .12s;
+  display:flex;flex-direction:column;gap:7px;font-family:inherit;color:inherit}
+.card:hover{transform:translateY(-2px)}
+.card:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+.card .row1{display:flex;align-items:center;gap:9px}
+.card .num{font-family:ui-monospace,monospace;font-size:11px;color:var(--dim)}
+.card .stamp{margin-left:auto;font-family:ui-monospace,monospace;font-size:10px;
+  letter-spacing:.16em;padding:3px 8px;border-radius:4px;border:1px solid currentColor}
+.card h3{font-size:17px;font-weight:800;letter-spacing:-.01em}
+.card small{color:var(--dim);font-size:13px;line-height:1.5}
+
+/* game screens */
+.screen{position:absolute;inset:0;display:none;flex-direction:column}
+.screen.on{display:flex}
+.hud{display:flex;align-items:center;gap:10px;padding:10px 14px;
+  border-bottom:1px solid var(--line);background:#10141D;flex-shrink:0}
+.hud .exit{background:transparent;border:1px solid var(--line);color:var(--bone);
+  border-radius:8px;padding:6px 11px;font-size:12px;font-family:inherit;cursor:pointer}
+.hud .mid{font-family:ui-monospace,monospace;font-size:12px;color:var(--dim)}
+.hud .right{margin-left:auto;font-family:ui-monospace,monospace;font-size:12px;color:var(--dim)}
+.hud .right b{color:var(--bone);font-size:14px}
+.play{flex:1;overflow-y:auto;padding:18px 16px;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:16px;text-align:center}
+.play.top{justify-content:flex-start}
+
+.word-big{font-size:clamp(30px,9vw,48px);font-weight:800;letter-spacing:-.02em}
+.mean-big{font-size:clamp(22px,6vw,32px);font-weight:800}
+.hint{color:var(--dim);font-size:13px;line-height:1.6;max-width:420px}
+.ex{color:var(--dim);font-style:italic;font-size:15px;max-width:440px;line-height:1.6}
+
+.opts{display:grid;gap:10px;width:100%;max-width:400px}
+.opt{padding:16px 14px;border-radius:11px;background:var(--panel);
+  border:1px solid var(--line);color:var(--bone);font-family:inherit;
+  font-size:16px;font-weight:600;cursor:pointer;text-align:left;transition:border-color .12s}
+.opt:hover{border-color:var(--dim)}
+.opt:active{transform:scale(.99)}
+.opt.right{border-color:var(--lime);background:rgba(168,200,91,.13)}
+.opt.wrong{border-color:var(--rose);background:rgba(224,87,107,.13)}
+.opt:disabled{cursor:default}
+
+.chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:460px}
+.chip{padding:10px 14px;border-radius:20px;background:var(--panel);border:1px solid var(--line);
+  color:var(--bone);font-family:inherit;font-size:15px;font-weight:600;cursor:pointer}
+.chip.sel{border-color:var(--cyan);background:rgba(91,200,192,.14)}
+.chip:disabled{opacity:.35;cursor:default}
+
+.field{width:100%;max-width:400px;padding:14px;border-radius:11px;
+  background:var(--panel);border:1px solid var(--line);color:var(--bone);
+  font-family:inherit;font-size:16px}
+.field:focus{outline:none;border-color:var(--cyan)}
+
+.feedback{min-height:26px;font-weight:700;font-size:15px}
+.feedback.good{color:var(--lime)}
+.feedback.bad{color:var(--rose)}
+.feedback.info{color:var(--amber)}
+
+/* bet slider */
+.betwrap{width:100%;max-width:360px;display:flex;flex-direction:column;gap:8px}
+.betrow{display:flex;align-items:center;gap:12px}
+.betrow input[type=range]{flex:1;accent-color:var(--amber)}
+.betval{font-family:ui-monospace,monospace;font-size:26px;font-weight:800;
+  color:var(--amber);min-width:64px;text-align:right}
+
+/* corrupted dictionary list */
+.dictlist{width:100%;max-width:440px;display:flex;flex-direction:column;gap:7px}
+.entry{display:flex;align-items:center;gap:12px;padding:13px 14px;border-radius:10px;
+  background:var(--panel);border:1px solid var(--line);cursor:pointer;
+  font-family:inherit;color:inherit;text-align:left;transition:border-color .12s}
+.entry .en{font-weight:700;font-size:16px;min-width:104px}
+.entry .ko{color:var(--dim);font-size:15px}
+.entry.flag{border-color:var(--amber);background:rgba(224,167,94,.1)}
+.entry.hit{border-color:var(--lime);background:rgba(168,200,91,.14)}
+.entry.miss{border-color:var(--rose);background:rgba(224,87,107,.14)}
+.entry:disabled{cursor:default}
+
+/* result overlay */
+.overlay{position:absolute;inset:0;z-index:30;background:rgba(11,14,20,.94);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:14px;padding:26px;text-align:center}
+.overlay .verb{font-family:ui-monospace,monospace;font-size:11px;letter-spacing:.2em;color:var(--dim)}
+.overlay h2{font-size:30px;font-weight:800}
+.overlay .score{font-family:ui-monospace,monospace;font-size:60px;font-weight:800;color:var(--amber);line-height:1}
+.overlay .note{color:var(--dim);font-size:14px;max-width:380px;line-height:1.6}
+.overlay .row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:6px}
+.hide{display:none!important}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="topbar">
+    <div class="brand">어휘 <b>실험실</b></div>
+    <div class="readout">
+      <div>점수 <b id="hud-score">0</b></div>
+    </div>
+  </div>
+
+  <div class="stage" id="stage">
+
+    <!-- ===== MENU ===== -->
+    <div class="menu" id="menu">
+      <div class="menu-head">
+        <h1>단어를 <em>의심</em>하는<br>열 가지 방법</h1>
+        <p>외웠는지 확인하는 게 아니라, 어떻게 아는지를 흔들어 봅니다. 프로토타입 10종 — 샘플 단어 10개로 감을 잡아보세요.</p>
+      </div>
+      <div class="grid" id="cards"></div>
+    </div>
+
+    <!-- ===== GAME SCREENS (generated) ===== -->
+    <div class="screen" id="screen">
+      <div class="hud">
+        <button class="exit" id="exit">← 나가기</button>
+        <div class="mid" id="hud-mid"></div>
+        <div class="right" id="hud-right"></div>
+      </div>
+      <div class="play" id="play"></div>
+    </div>
+
+    <!-- ===== RESULT ===== -->
+    <div class="overlay hide" id="result">
+      <div class="verb" id="r-verb"></div>
+      <h2 id="r-title">종료</h2>
+      <div class="score" id="r-score">0</div>
+      <div class="note" id="r-note"></div>
+      <div class="row">
+        <button class="btn solid" id="r-again">다시</button>
+        <button class="btn ghost" id="r-menu">메뉴로</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* ============ 샘플 단어 ============ */
+const WORDS=[
+  {en:"achieve",  ko:"성취하다",   ex:"She worked hard to ___ her dream."},
+  {en:"ancient",  ko:"고대의",     ex:"They studied ___ Greek culture."},
+  {en:"benefit",  ko:"이익, 혜택", ex:"Exercise has many health ___s."},
+  {en:"crucial",  ko:"결정적인",   ex:"Sleep is ___ for good health."},
+  {en:"decline",  ko:"감소하다",   ex:"Sales began to ___ last year."},
+  {en:"efficient",ko:"효율적인",   ex:"This engine is very ___."},
+  {en:"gather",   ko:"모으다",     ex:"They ___ed around the fire."},
+  {en:"obvious",  ko:"명백한",     ex:"The answer was ___ to everyone."},
+  {en:"reduce",   ko:"줄이다",     ex:"We must ___ plastic waste."},
+  {en:"struggle", ko:"분투하다",   ex:"He ___d to finish the race."},
+];
+
+/* 그럴듯한 가짜 뜻 풀 (거짓말쟁이 사전용 — 가짜 상대 역할) */
+const FAKE_MEANINGS=[
+  "포기하다","연기하다","숨기다","의심하다","확장하다","무너지다","보관하다",
+  "빌리다","경고하다","수집가","견디다","맹세하다","흩어지다","조용한",
+  "값비싼","일시적인","불규칙한","촘촘한","느슨한","외딴"
+];
+
+/* ============ 공통 ============ */
+const $=s=>document.querySelector(s);
+const stage=$('#stage'), play=$('#play'), screen=$('#screen'), menu=$('#menu');
+const shuffle=a=>a.map(x=>[Math.random(),x]).sort((p,q)=>p[0]-q[0]).map(x=>x[1]);
+const pick=(arr,n,not)=>shuffle(arr.filter(w=>w!==not)).slice(0,n);
+let score=0, current=null, timerId=null, rafId=null;
+
+function setScore(v){score=v;$('#hud-score').textContent=v;}
+function hud(mid,right){$('#hud-mid').textContent=mid||'';$('#hud-right').innerHTML=right||'';}
+function clearTimers(){if(timerId){clearInterval(timerId);timerId=null;}
+  if(rafId){cancelAnimationFrame(rafId);rafId=null;}}
+
+function goMenu(){
+  clearTimers(); screen.classList.remove('on'); menu.style.display='block';
+  $('#result').classList.add('hide'); play.innerHTML='';
+}
+function openGame(id){
+  current=id; setScore(0); clearTimers();
+  menu.style.display='none'; screen.classList.add('on');
+  $('#result').classList.add('hide'); play.innerHTML=''; play.className='play';
+  GAMES.find(g=>g.id===id).start();
+}
+function finish(title,note){
+  clearTimers();
+  const g=GAMES.find(x=>x.id===current);
+  $('#r-verb').textContent=g?g.stamp:'';
+  $('#r-title').textContent=title;
+  $('#r-score').textContent=score;
+  $('#r-note').textContent=note||'';
+  $('#result').classList.remove('hide');
+}
+$('#exit').onclick=goMenu;
+$('#r-menu').onclick=goMenu;
+$('#r-again').onclick=()=>openGame(current);
+
+/* 화면 조립 헬퍼 */
+function el(tag,cls,txt){const e=document.createElement(tag);
+  if(cls)e.className=cls; if(txt!=null)e.textContent=txt; return e;}
+function mount(...nodes){play.innerHTML='';nodes.forEach(n=>n&&play.appendChild(n));}
+
+/* ============ 게임 1. 단어 경매장 ============ */
+function gameAuction(){
+  let round=0, cur=null, bet=20;
+  const TOTAL=8;
+  setScore(100);                       // 시작 자본
+  const next=()=>{
+    if(round>=TOTAL||score<=0){
+      finish(score>100?'자본 증식':'파산 직전',
+        score>100?'베팅 감각이 좋아요. 아는 단어와 모르는 단어를 잘 구분했습니다.'
+                 :'확신했던 단어가 실제로는 약했던 거예요. 그게 이 게임의 핵심입니다.');
+      return;
+    }
+    round++; cur=shuffle(WORDS)[0];
+    bet=Math.min(20,score);
+    hud('라운드 '+round+' / '+TOTAL, '자본 <b>'+score+'</b>');
+
+    const w=el('div','word-big',cur.en);
+    const h=el('div','hint','뜻을 보기 전에 정합니다. 이 단어, 얼마나 확실히 아나요?');
+    const bw=el('div','betwrap');
+    const row=el('div','betrow');
+    const rng=document.createElement('input');
+    rng.type='range';rng.min=5;rng.max=Math.max(5,score);rng.step=5;rng.value=bet;
+    const val=el('div','betval',bet);
+    rng.oninput=()=>{bet=+rng.value;val.textContent=bet;};
+    row.append(rng,val);
+    const go=el('button','btn solid','이만큼 걸고 확인');
+    go.onclick=()=>ask();
+    bw.append(row,go);
+    mount(w,h,bw);
+  };
+  const ask=()=>{
+    const opts=shuffle([cur,...pick(WORDS,3,cur)]);
+    const w=el('div','word-big',cur.en);
+    const h=el('div','hint','건 점수: '+bet);
+    const box=el('div','opts');
+    opts.forEach(o=>{
+      const b=el('button','opt',o.ko);
+      b.onclick=()=>{
+        [...box.children].forEach(c=>c.disabled=true);
+        if(o===cur){b.classList.add('right');setScore(score+bet);}
+        else{
+          b.classList.add('wrong');
+          [...box.children].forEach(c=>{if(c.textContent===cur.ko)c.classList.add('right');});
+          setScore(Math.max(0,score-bet));
+        }
+        setTimeout(next,900);
+      };
+      box.appendChild(b);
+    });
+    mount(w,h,box);
+  };
+  next();
+}
+
+/* ============ 게임 2. 거짓말쟁이 사전 ============ */
+function gameFictionary(){
+  let round=0, cur=null, myFake='';
+  const TOTAL=6;
+  const next=()=>{
+    if(round>=TOTAL){
+      finish('사전 편찬 완료','남을 속이려면 어근과 어감을 계산해야 하고, 안 속으려면 그걸 역으로 읽어야 하죠.');
+      return;
+    }
+    round++; cur=shuffle(WORDS)[0];
+    hud('라운드 '+round+' / '+TOTAL, '점수 <b>'+score+'</b>');
+    const w=el('div','word-big',cur.en);
+    const h=el('div','hint','이 단어의 가짜 뜻을 지어내세요. 그럴듯할수록 좋습니다.');
+    const inp=document.createElement('input');
+    inp.className='field';inp.placeholder='예: 흩어지다';inp.maxLength=20;
+    const go=el('button','btn solid','제출');
+    go.onclick=()=>{
+      myFake=inp.value.trim()||FAKE_MEANINGS[0];
+      hunt();
+    };
+    inp.onkeydown=e=>{if(e.key==='Enter')go.click();};
+    mount(w,h,inp,go);
+    inp.focus();
+  };
+  const hunt=()=>{
+    // 진짜 + 내 가짜 + 다른 "학생"들의 가짜(풀에서)
+    const others=shuffle(FAKE_MEANINGS.filter(f=>f!==cur.ko&&f!==myFake)).slice(0,2);
+    const all=shuffle([{t:cur.ko,k:'real'},{t:myFake,k:'mine'},
+      ...others.map(o=>({t:o,k:'other'}))]);
+    const w=el('div','word-big',cur.en);
+    const h=el('div','hint','이 중 진짜 뜻은 하나입니다. (당신이 쓴 것도 섞여 있어요)');
+    const box=el('div','opts');
+    all.forEach(o=>{
+      const b=el('button','opt',o.t);
+      b.onclick=()=>{
+        [...box.children].forEach(c=>c.disabled=true);
+        if(o.k==='real'){b.classList.add('right');setScore(score+10);}
+        else{
+          b.classList.add('wrong');
+          [...box.children].forEach(c=>{if(c.textContent===cur.ko)c.classList.add('right');});
+          if(o.k==='mine')setScore(score+2); // 자기 거짓말에 속으면 소소한 보상
+        }
+        setTimeout(next,1100);
+      };
+      box.appendChild(b);
+    });
+    mount(w,h,box);
+  };
+  next();
+}
+
+/* ============ 게임 3. 오염된 사전 ============ */
+function gameCorrupted(){
+  const SIZE=8, CORRUPT=3, TIME=40;
+  let left=TIME, found=0, done=false;
+  const chosen=shuffle(WORDS).slice(0,SIZE);
+  const badIdx=new Set(shuffle([...Array(SIZE).keys()]).slice(0,CORRUPT));
+  const rows=chosen.map((w,i)=>{
+    if(badIdx.has(i)){
+      const other=pick(WORDS,1,w)[0];
+      return {en:w.en, ko:other.ko, bad:true};
+    }
+    return {en:w.en, ko:w.ko, bad:false};
+  });
+
+  play.className='play top';
+  const h=el('div','hint','이 사전에 '+CORRUPT+'개의 뜻이 잘못 적혀 있습니다. 틀린 항목을 찾아 누르세요.');
+  const list=el('div','dictlist');
+  const fb=el('div','feedback');
+  rows.forEach(r=>{
+    const b=el('button','entry');
+    const en=el('div','en',r.en), ko=el('div','ko',r.ko);
+    b.append(en,ko);
+    b.onclick=()=>{
+      if(done||b.disabled)return;
+      b.disabled=true;
+      if(r.bad){
+        b.classList.add('hit');found++;setScore(score+15);
+        fb.className='feedback good';fb.textContent='오염 발견 '+found+' / '+CORRUPT;
+        if(found===CORRUPT)end(true);
+      }else{
+        b.classList.add('miss');setScore(Math.max(0,score-5));
+        fb.className='feedback bad';fb.textContent='이건 올바른 항목이었어요';
+      }
+    };
+    list.appendChild(b);
+  });
+  mount(h,list,fb);
+
+  const end=(win)=>{
+    if(done)return; done=true; clearTimers();
+    [...list.children].forEach((c,i)=>{c.disabled=true;
+      if(rows[i].bad&&!c.classList.contains('hit'))c.classList.add('miss');});
+    setTimeout(()=>finish(win?'사전 정화 완료':'시간 종료',
+      win?'틀린 걸 찾아내는 건 아는 것보다 어렵습니다. 잘했어요.'
+         :'못 찾은 오염 항목을 확인해 보세요.'),700);
+  };
+  hud('오염 '+CORRUPT+'개', '남은 시간 <b>'+left+'</b>초');
+  timerId=setInterval(()=>{
+    left--; hud('오염 '+CORRUPT+'개','남은 시간 <b>'+left+'</b>초');
+    if(left<=0)end(false);
+  },1000);
+}
+
+/* ============ 게임 4. 단어 생태계 ============ */
+/* 의미 그룹: 같은 그룹끼리 묶으면 정답 */
+const ECO_GROUPS=[
+  {tag:'늘고 줄기',   members:['reduce','decline','gather']},
+  {tag:'중요함',      members:['crucial','obvious','benefit']},
+  {tag:'힘써 이루기', members:['achieve','struggle','efficient']},
+];
+function gameEcosystem(){
+  let solved=0, sel=[];
+  const pool=shuffle(ECO_GROUPS.flatMap(g=>g.members));
+  const doneWords=new Set();
+  play.className='play';
+  const h=el('div','hint','의미가 가까운 단어 3개를 골라 묶으세요. 세 묶음을 다 찾으면 끝납니다.');
+  const chips=el('div','chips');
+  const fb=el('div','feedback');
+  const submit=el('button','btn solid','이 3개로 묶기');
+  submit.disabled=true;
+
+  const wordOf=en=>WORDS.find(w=>w.en===en);
+  const redraw=()=>{
+    chips.innerHTML='';
+    pool.forEach(en=>{
+      const b=el('button','chip',en);
+      if(doneWords.has(en)){b.disabled=true;b.style.opacity='.25';}
+      if(sel.includes(en))b.classList.add('sel');
+      b.onclick=()=>{
+        if(doneWords.has(en))return;
+        if(sel.includes(en))sel=sel.filter(x=>x!==en);
+        else if(sel.length<3)sel.push(en);
+        submit.disabled=sel.length!==3;
+        redraw();
+      };
+      chips.appendChild(b);
+    });
+  };
+  submit.onclick=()=>{
+    const g=sel.length===3 ? ECO_GROUPS.find(gr=>sel.every(s=>gr.members.includes(s))) : null;
+    if(g){
+      solved++; setScore(score+25);
+      sel.forEach(s=>doneWords.add(s));
+      fb.className='feedback good';
+      fb.textContent='"'+g.tag+'" 군집 완성 ('+solved+'/3)';
+      sel=[];submit.disabled=true;redraw();syncHud();
+      if(solved===3)setTimeout(()=>finish('생태계 안정',
+        '개별 단어가 아니라 의미망이 머리에 남습니다.'),800);
+    }else{
+      setScore(Math.max(0,score-5));
+      fb.className='feedback bad';fb.textContent='흩어졌습니다. 다시 묶어보세요.';
+      sel=[];submit.disabled=true;redraw();
+    }
+  };
+  const syncHud=()=>hud('군집 만들기','완성 <b>'+solved+'</b> / 3');
+  syncHud();
+  redraw(); mount(h,chips,submit,fb);
+}
+
+/* ============ 게임 5. 시간여행 어원 ============ */
+const MORPH=[
+  {en:'efficient', parts:['ef-','fic','-ient'], key:'fic', mean:'만들다, 하다(fic/fac)',
+   kin:[{w:'factory',k:'공장'},{w:'fiction',k:'허구'},{w:'perfect',k:'완벽한'}]},
+  {en:'reduce',    parts:['re-','duc','-e'],   key:'duc', mean:'이끌다(duc/duct)',
+   kin:[{w:'conduct',k:'지휘하다'},{w:'introduce',k:'소개하다'},{w:'produce',k:'생산하다'}]},
+  {en:'decline',   parts:['de-','clin','-e'],  key:'clin', mean:'기울다(clin)',
+   kin:[{w:'incline',k:'기울이다'},{w:'recline',k:'기대다'},{w:'climate',k:'기후'}]},
+  {en:'benefit',   parts:['bene-','fi','-t'],  key:'bene', mean:'좋은(bene)',
+   kin:[{w:'benefactor',k:'후원자'},{w:'benevolent',k:'자비로운'},{w:'benign',k:'온화한'}]},
+];
+function gameEtymology(){
+  let i=0, order=shuffle(MORPH.slice());
+  const next=()=>{
+    if(i>=order.length){
+      finish('어원 항해 종료','조각을 알면 처음 보는 단어도 추측할 수 있습니다.');
+      return;
+    }
+    const m=order[i]; i++;
+    hud('단어 '+i+' / '+order.length,'점수 <b>'+score+'</b>');
+    const w=el('div','word-big',m.en);
+    const h=el('div','hint','이 단어의 뿌리(어근)는 어느 조각일까요?');
+    const box=el('div','chips');
+    shuffle(m.parts.slice()).forEach(p=>{
+      const b=el('button','chip',p);
+      b.onclick=()=>{
+        [...box.children].forEach(c=>c.disabled=true);
+        const norm=s=>s.replace(/-/g,'');
+        if(norm(p)===m.key){b.classList.add('sel');setScore(score+15);reveal(m,true);}
+        else{setScore(Math.max(0,score-5));reveal(m,false);}
+      };
+      box.appendChild(b);
+    });
+    mount(w,h,box);
+  };
+  const reveal=(m,ok)=>{
+    const w=el('div','word-big',m.key);
+    const h=el('div','hint',(ok?'맞았어요. ':'뿌리는 이거였어요. ')+m.mean);
+    const h2=el('div','hint','같은 뿌리를 쓰는 단어들 — 뜻이 보이나요?');
+    const box=el('div','opts');
+    m.kin.forEach(k=>{
+      const row=el('div','opt',k.w+'  →  '+k.k);
+      row.style.cursor='default';
+      box.appendChild(row);
+    });
+    const go=el('button','btn solid','다음');
+    go.onclick=next;
+    mount(w,h,h2,box,go);
+  };
+  next();
+}
+
+/* ============ 게임 6. 오답 사냥꾼 ============ */
+/* 학생이 출제자: 특정 단어의 오답 보기로 가장 헷갈릴 단어 고르기 */
+const TRAP_SCORE={
+  // 정답단어: {후보: 함정지수}
+  achieve:  {struggle:3, gather:2, decline:1, ancient:0},
+  ancient:  {obvious:1, crucial:1, efficient:0, gather:0},
+  benefit:  {crucial:3, achieve:2, reduce:1, ancient:0},
+  crucial:  {obvious:3, benefit:2, efficient:1, gather:0},
+  decline:  {reduce:3, struggle:1, gather:2, obvious:0},
+  efficient:{crucial:2, obvious:2, achieve:1, ancient:0},
+  gather:   {reduce:2, achieve:1, decline:2, obvious:0},
+  obvious:  {crucial:3, efficient:2, ancient:1, gather:0},
+  reduce:   {decline:3, gather:2, struggle:1, ancient:0},
+  struggle: {achieve:3, decline:1, gather:1, obvious:0},
+};
+function gameTrapHunter(){
+  let round=0; const TOTAL=6;
+  const next=()=>{
+    if(round>=TOTAL){
+      finish('출제 완료','헷갈리는 걸 고르려면 의미 차이를 정확히 알아야 하죠. 사실상 최고난도입니다.');
+      return;
+    }
+    round++;
+    const cur=shuffle(WORDS.filter(w=>TRAP_SCORE[w.en]))[0];
+    const table=TRAP_SCORE[cur.en];
+    const cands=shuffle(Object.keys(table)).slice(0,4);
+    hud('출제 '+round+' / '+TOTAL,'점수 <b>'+score+'</b>');
+    const w=el('div','word-big',cur.en);
+    const h=el('div','hint','뜻: '+cur.ko+' — 이 문제의 오답 보기로, 친구들이 가장 헷갈릴 단어는?');
+    const box=el('div','opts');
+    cands.forEach(c=>{
+      const kw=WORDS.find(x=>x.en===c);
+      const b=el('button','opt',c+'  ('+(kw?kw.ko:'')+')');
+      b.onclick=()=>{
+        [...box.children].forEach(x=>x.disabled=true);
+        const pts=(table[c]||0)*10;
+        setScore(score+pts);
+        b.classList.add(pts>=20?'right':(pts===0?'wrong':''));
+        const fb=el('div','feedback '+(pts>=20?'good':(pts===0?'bad':'info')));
+        fb.textContent = pts>=30?'완벽한 함정입니다 +'+pts
+          : pts>=20?'꽤 헷갈리겠어요 +'+pts
+          : pts>=10?'조금 약해요 +'+pts
+          : '너무 쉬운 오답이에요 +0';
+        play.appendChild(fb);
+        setTimeout(next,1200);
+      };
+      box.appendChild(b);
+    });
+    mount(w,h,box);
+  };
+  next();
+}
+
+/* ============ 게임 7. 단어 족보 ============ */
+const FAMILY=[
+  {base:'achieve',  chain:['achieve','achievement'],
+   opts:['achievement','achievely','achievation','achieveness']},
+  {base:'benefit',  chain:['benefit','beneficial'],
+   opts:['beneficial','benefitful','benefition','benefitive']},
+  {base:'efficient',chain:['efficient','efficiency'],
+   opts:['efficiency','efficientness','efficition','efficientism']},
+  {base:'reduce',   chain:['reduce','reduction'],
+   opts:['reduction','reducement','reducity','reducal']},
+  {base:'obvious',  chain:['obvious','obviously'],
+   opts:['obviously','obviousment','obviate','obviousity']},
+];
+function gameFamily(){
+  let i=0; const order=shuffle(FAMILY.slice());
+  const next=()=>{
+    if(i>=order.length){
+      finish('족보 완성','파생어를 알면 한 단어가 서너 개로 늘어납니다.');
+      return;
+    }
+    const f=order[i]; i++;
+    hud('족보 '+i+' / '+order.length,'점수 <b>'+score+'</b>');
+    const w=el('div','word-big',f.base);
+    const h=el('div','hint','이 단어에서 실제로 뻗어 나온 파생어는? (나머지는 존재하지 않는 단어)');
+    const box=el('div','opts');
+    shuffle(f.opts.slice()).forEach(o=>{
+      const b=el('button','opt',o);
+      b.onclick=()=>{
+        [...box.children].forEach(c=>c.disabled=true);
+        if(o===f.chain[1]){b.classList.add('right');setScore(score+20);}
+        else{
+          b.classList.add('wrong');
+          [...box.children].forEach(c=>{if(c.textContent===f.chain[1])c.classList.add('right');});
+        }
+        setTimeout(next,1000);
+      };
+      box.appendChild(b);
+    });
+    mount(w,h,box);
+  };
+  next();
+}
+
+/* ============ 게임 8. 의미 온도계 ============ */
+/* 비슷한 계열 단어를 세기(강도) 순으로 배열 */
+const SCALES=[
+  {theme:'줄어드는 정도', order:['reduce','decline','struggle'],
+   labels:{reduce:'약간 줄임',decline:'점점 감소',struggle:'힘겹게 버팀'}},
+  {theme:'확실함의 정도', order:['benefit','obvious','crucial'],
+   labels:{benefit:'도움이 됨',obvious:'분명히 드러남',crucial:'없으면 안 됨'}},
+  {theme:'이루는 정도',   order:['gather','efficient','achieve'],
+   labels:{gather:'모으는 중',efficient:'효율적으로',achieve:'끝내 이룸'}},
+];
+function gameThermometer(){
+  let i=0; const rounds=shuffle(SCALES.slice());
+  const next=()=>{
+    if(i>=rounds.length){
+      finish('보정 완료','뜻이 아니라 세기의 차이 — 아무도 안 가르치는 축이죠.');
+      return;
+    }
+    const sc=rounds[i]; i++;
+    hud('배열 '+i+' / '+rounds.length,'점수 <b>'+score+'</b>');
+    let arranged=shuffle(sc.order.slice());
+    const w=el('div','mean-big',sc.theme);
+    const h=el('div','hint','약함 → 강함 순서가 되도록 위아래로 옮기세요.');
+    const list=el('div','dictlist');
+    const fb=el('div','feedback');
+
+    const redraw=()=>{
+      list.innerHTML='';
+      arranged.forEach((en,idx)=>{
+        const kw=WORDS.find(x=>x.en===en);
+        const row=el('div','entry');
+        row.style.cursor='default';
+        const up=el('button','chip','↑'); up.style.padding='6px 10px';
+        const dn=el('button','chip','↓'); dn.style.padding='6px 10px';
+        up.disabled=idx===0; dn.disabled=idx===arranged.length-1;
+        up.onclick=()=>{[arranged[idx-1],arranged[idx]]=[arranged[idx],arranged[idx-1]];redraw();};
+        dn.onclick=()=>{[arranged[idx+1],arranged[idx]]=[arranged[idx],arranged[idx+1]];redraw();};
+        const body=el('div',null);
+        body.style.flex='1';body.style.textAlign='left';
+        const en2=el('div','en',en); en2.style.minWidth='0';
+        const ko2=el('div','ko',sc.labels[en]);
+        body.append(en2,ko2);
+        const ctrl=el('div',null); ctrl.style.display='flex'; ctrl.style.gap='6px';
+        ctrl.append(up,dn);
+        row.append(body,ctrl);
+        list.appendChild(row);
+      });
+    };
+    const check=el('button','btn solid','이 순서로 제출');
+    check.onclick=()=>{
+      const ok=arranged.every((en,idx)=>en===sc.order[idx]);
+      if(ok){setScore(score+20);fb.className='feedback good';fb.textContent='정확한 배열!';}
+      else{setScore(Math.max(0,score-5));fb.className='feedback bad';
+        fb.textContent='정답: '+sc.order.map(e=>e).join(' → ');}
+      check.disabled=true;
+      setTimeout(next,1300);
+    };
+    redraw();
+    mount(w,h,list,check,fb);
+  };
+  next();
+}
+
+/* ============ 게임 9. 문맥 감별사 ============ */
+/* 뜻이 비슷/혼동되는 두 단어 중 문장에 맞는 것 고르기 */
+const CONTEXT=[
+  {sent:"We must ___ plastic waste to protect the earth.",
+   right:'reduce', wrong:'decline', why:'reduce는 "의도적으로 줄이다", decline은 "저절로 감소하다"'},
+  {sent:"Sales began to ___ after the holiday season.",
+   right:'decline', wrong:'reduce', why:'주어가 스스로 줄어드는 흐름이라 decline'},
+  {sent:"The answer was ___ to everyone in the room.",
+   right:'obvious', wrong:'crucial', why:'obvious는 "분명한", crucial은 "결정적인"'},
+  {sent:"Getting enough sleep is ___ for your health.",
+   right:'crucial', wrong:'obvious', why:'"중요하다"는 맥락이라 crucial'},
+  {sent:"This new engine is far more ___ than the old one.",
+   right:'efficient', wrong:'benefit', why:'형용사 자리 — efficient(효율적인)'},
+  {sent:"Regular exercise brings many health ___s.",
+   right:'benefit', wrong:'efficient', why:'명사 자리, "혜택"이라 benefit'},
+];
+function gameContext(){
+  let i=0; const rounds=shuffle(CONTEXT.slice());
+  const next=()=>{
+    if(i>=rounds.length){
+      finish('감별 종료','뜻이 같아 보여도 쓰임이 다릅니다. 그 경계를 잡는 훈련이에요.');
+      return;
+    }
+    const c=rounds[i]; i++;
+    hud('문장 '+i+' / '+rounds.length,'점수 <b>'+score+'</b>');
+    const kR=WORDS.find(x=>x.en===c.right), kW=WORDS.find(x=>x.en===c.wrong);
+    const sent=el('div','ex','"'+c.sent+'"');
+    const h=el('div','hint','빈칸에 알맞은 단어는?');
+    const box=el('div','opts');
+    shuffle([c.right,c.wrong]).forEach(en=>{
+      const kw=WORDS.find(x=>x.en===en);
+      const b=el('button','opt',en+'  ('+(kw?kw.ko:'')+')');
+      b.onclick=()=>{
+        [...box.children].forEach(x=>x.disabled=true);
+        if(en===c.right){b.classList.add('right');setScore(score+15);}
+        else{b.classList.add('wrong');
+          [...box.children].forEach(x=>{if(x.textContent.startsWith(c.right))x.classList.add('right');});}
+        const fb=el('div','feedback info'); fb.textContent=c.why;
+        play.appendChild(fb);
+        setTimeout(next,1600);
+      };
+      box.appendChild(b);
+    });
+    mount(sent,h,box);
+  };
+  next();
+}
+
+/* ============ 게임 10. 단어 연쇄 생존 ============ */
+/* 앞 단어의 마지막 글자로 시작하는 단어를 리스트에서 고르기 */
+function gameChain(){
+  let cur=shuffle(WORDS)[0], chainLen=0, left=45, done=false;
+  const used=new Set([cur.en]);
+  play.className='play';
+  const cw=el('div','word-big',cur.en);
+  const h=el('div','hint','');
+  const box=el('div','opts');
+  const fb=el('div','feedback');
+
+  const lastCh=w=>w.en[w.en.length-1].toLowerCase();
+  const render=()=>{
+    cw.textContent=cur.en;
+    h.textContent='"'+lastCh(cur)+'" (으)로 시작하는 단어를 고르세요 · 연쇄 '+chainLen;
+    const need=lastCh(cur);
+    const valid=WORDS.filter(x=>!used.has(x.en)&&x.en[0].toLowerCase()===need);
+    // 보기: 정답 후보 + 오답 몇 개 (없으면 라운드 종료)
+    if(valid.length===0){end(true);return;}
+    const wrongs=pick(WORDS.filter(x=>!used.has(x.en)&&x.en[0].toLowerCase()!==need),3);
+    const opts=shuffle([valid[0],...wrongs]);
+    box.innerHTML='';
+    opts.forEach(o=>{
+      const b=el('button','opt',o.en+'  ('+o.ko+')');
+      b.onclick=()=>{
+        if(done)return;
+        if(o.en[0].toLowerCase()===need){
+          chainLen++;setScore(score+10);used.add(o.en);cur=o;
+          fb.className='feedback good';fb.textContent='연결! ('+chainLen+')';
+          if(used.size>=WORDS.length){end(true);return;}
+          render();
+        }else{
+          setScore(Math.max(0,score-5));
+          fb.className='feedback bad';fb.textContent='"'+need+'"로 시작하지 않아요';
+        }
+      };
+      box.appendChild(b);
+    });
+  };
+  const end=win=>{
+    if(done)return;done=true;clearTimers();
+    finish(win?'연쇄 성공':'시간 종료','끝말잇기로 리스트 전체를 계속 훑게 됩니다. 연쇄 '+chainLen);
+  };
+  hud('연쇄 만들기','남은 시간 <b>'+left+'</b>초');
+  timerId=setInterval(()=>{left--;hud('연쇄 만들기','남은 시간 <b>'+left+'</b>초');
+    if(left<=0)end(false);},1000);
+  render();
+  mount(cw,h,box,fb);
+}
+
+/* ============ 게임 목록 ============ */
+const GAMES=[
+  {id:'auction', no:'01', name:'단어 경매장', stamp:'BET', color:'var(--amber)',
+   desc:'뜻을 보기 전에 자신감을 겁니다. 아는 척한 단어가 드러나요.', start:gameAuction},
+  {id:'fiction', no:'02', name:'거짓말쟁이 사전', stamp:'LIE', color:'var(--violet)',
+   desc:'가짜 뜻을 직접 지어내고, 남의 거짓말 속에서 진짜를 찾습니다.', start:gameFictionary},
+  {id:'corrupt', no:'03', name:'오염된 사전', stamp:'DOUBT', color:'var(--rose)',
+   desc:'풀지 않고 의심합니다. 틀리게 적힌 뜻을 찾아내세요.', start:gameCorrupted},
+  {id:'eco', no:'04', name:'단어 생태계', stamp:'SORT', color:'var(--lime)',
+   desc:'의미가 가까운 단어끼리 묶어 군집을 키웁니다.', start:gameEcosystem},
+  {id:'etym', no:'05', name:'시간여행 어원', stamp:'TRACE', color:'var(--cyan)',
+   desc:'단어를 조각내 뿌리를 찾고, 그 뿌리로 다른 단어를 읽습니다.', start:gameEtymology},
+  {id:'trap', no:'06', name:'오답 사냥꾼', stamp:'TRAP', color:'var(--amber)',
+   desc:'푸는 대신 출제합니다. 가장 헷갈릴 오답을 고르세요.', start:gameTrapHunter},
+  {id:'family', no:'07', name:'단어 족보', stamp:'GROW', color:'var(--violet)',
+   desc:'한 단어에서 실제로 뻗어 나온 파생어를 가려냅니다.', start:gameFamily},
+  {id:'thermo', no:'08', name:'의미 온도계', stamp:'SCALE', color:'var(--rose)',
+   desc:'비슷한 단어를 약함에서 강함 순으로 배열합니다.', start:gameThermometer},
+  {id:'context', no:'09', name:'문맥 감별사', stamp:'FIT', color:'var(--cyan)',
+   desc:'뜻이 비슷한 두 단어 중 문장에 맞는 하나를 고릅니다.', start:gameContext},
+  {id:'chain', no:'10', name:'단어 연쇄 생존', stamp:'LINK', color:'var(--lime)',
+   desc:'앞 단어의 끝 글자로 시작하는 단어를 이어갑니다.', start:gameChain},
+];
+
+/* 메뉴 렌더 */
+function renderMenu(){
+  const box=$('#cards'); box.innerHTML='';
+  GAMES.forEach(g=>{
+    const c=document.createElement('button'); c.className='card';
+    const r1=el('div','row1');
+    r1.append(el('div','num',g.no));
+    const st=el('div','stamp',g.stamp); st.style.color=g.color;
+    r1.appendChild(st);
+    const t=el('h3',null,g.name);
+    const d=el('small',null,g.desc);
+    c.append(r1,t,d);
+    c.onclick=()=>openGame(g.id);
+    box.appendChild(c);
+  });
+}
+renderMenu();
+</script>
+</body>
+</html>
