@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>단어 소각장</title>
+<style>
+:root{
+  --soot:#14100e; --iron:#221b17; --iron2:#2e2420; --grate:#3a2c24;
+  --ash:#e9ddcf; --dim:#9a8776;
+  --ember:#ff6b1f; --ember2:#ffb03a; --flame:#ffd76a; --cool:#5ac8d8; --danger:#ff3b30;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:var(--soot); color:var(--ash);
+  font-family:"Georgia","Times New Roman",serif;
+  overflow:hidden;overscroll-behavior:none;touch-action:manipulation;
+  -webkit-font-smoothing:antialiased;
+}
+#app{height:100dvh;display:flex;flex-direction:column;position:relative}
+
+.topbar{display:flex;align-items:center;gap:12px;padding:11px 16px;
+  background:linear-gradient(#241c18,#1a1512);border-bottom:1px solid #000}
+.brand{font-weight:700;letter-spacing:.04em;font-size:17px;
+  font-family:"Georgia",serif;color:var(--flame)}
+.brand small{display:block;font-size:9px;letter-spacing:.32em;color:var(--dim);
+  font-family:ui-monospace,monospace;text-transform:uppercase;margin-top:1px}
+.score{margin-left:auto;text-align:right}
+.score .n{font-family:ui-monospace,monospace;font-size:22px;font-weight:700;color:var(--ember2);line-height:1}
+.score .l{font-size:9px;letter-spacing:.2em;color:var(--dim);font-family:ui-monospace,monospace;text-transform:uppercase}
+
+/* heat gauge */
+.gauge{height:8px;background:#0c0908;position:relative;overflow:hidden}
+.gauge .fill{position:absolute;inset:0;width:0%;
+  background:linear-gradient(90deg,var(--cool),var(--ember2) 55%,var(--danger));
+  transition:width .25s}
+.gauge .fill.crit{animation:pulse .5s infinite}
+@keyframes pulse{50%{opacity:.5}}
+
+.stage{flex:1;position:relative;overflow:hidden;
+  background:
+    repeating-linear-gradient(0deg,transparent,transparent 46px,rgba(0,0,0,.35) 46px,rgba(0,0,0,.35) 48px),
+    radial-gradient(120% 80% at 50% 120%,#3a1c0a,transparent 60%),
+    linear-gradient(#1a1310,#0f0b09)}
+.stage::before{content:"";position:absolute;left:0;right:0;bottom:0;height:38%;
+  background:radial-gradient(120% 130% at 50% 100%,rgba(255,90,20,.42),rgba(255,60,10,.12) 45%,transparent 70%);
+  animation:furnace 3.2s ease-in-out infinite;pointer-events:none;z-index:0}
+@keyframes furnace{0%,100%{opacity:.75;transform:scaleY(1)}50%{opacity:1;transform:scaleY(1.08)}}
+
+/* meaning target */
+.target{position:absolute;top:14px;left:50%;transform:translateX(-50%);
+  text-align:center;z-index:5;width:90%;max-width:440px}
+.target .lbl{font-size:10px;letter-spacing:.28em;color:var(--dim);
+  font-family:ui-monospace,monospace;text-transform:uppercase;margin-bottom:5px}
+.target .mean{font-size:clamp(26px,7vw,40px);font-weight:700;color:var(--flame);
+  text-shadow:0 0 18px rgba(255,140,40,.45)}
+
+/* falling coal words */
+.coal{position:absolute;padding:11px 16px;border-radius:5px 5px 6px 6px;
+  font-family:"Georgia",serif;font-weight:700;font-size:17px;cursor:pointer;
+  color:#1a0f08;white-space:nowrap;
+  background:linear-gradient(#ffb84d,#ff7a1f);
+  box-shadow:0 0 14px rgba(255,110,30,.5),inset 0 1px 0 rgba(255,255,255,.4);
+  border:1px solid #d15a12;transition:transform .05s}
+.coal:active{transform:scale(.94)}
+.coal.burn{animation:burn .45s forwards;pointer-events:none}
+@keyframes burn{
+  0%{transform:scale(1);filter:brightness(1)}
+  30%{transform:scale(1.15);filter:brightness(1.8)}
+  100%{transform:scale(.3) translateY(-30px);opacity:0;filter:brightness(3)}
+}
+.coal.dud{animation:dud .3s}
+@keyframes dud{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+
+.embers{position:absolute;inset:0;pointer-events:none;z-index:1}
+
+/* overlays */
+.screen{position:absolute;inset:0;z-index:20;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:20px;padding:28px;text-align:center;
+  background:radial-gradient(circle at 50% 40%,rgba(60,25,8,.55),rgba(10,8,6,.96))}
+.screen.hide{display:none}
+.screen h1{font-size:clamp(30px,8vw,50px);font-weight:700;color:var(--flame);
+  text-shadow:0 0 24px rgba(255,140,40,.5);line-height:1.05}
+.screen h1 span{color:var(--ember)}
+.screen p{color:var(--dim);max-width:400px;font-size:15px;line-height:1.65}
+.screen .big{font-family:ui-monospace,monospace;font-size:60px;font-weight:700;color:var(--ember2)}
+.btn{cursor:pointer;border:none;border-radius:7px;padding:15px 30px;font-family:"Georgia",serif;
+  font-weight:700;font-size:17px;color:#1a0f08;
+  background:linear-gradient(#ffc75a,#ff7a1f);box-shadow:0 4px 0 #b8480f;transition:transform .06s}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 #b8480f}
+.btn.ghost{background:transparent;color:var(--ash);border:1px solid var(--grate);
+  box-shadow:none;font-size:15px;padding:12px 22px}
+.row{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+.stat-line{font-family:ui-monospace,monospace;font-size:13px;color:var(--dim)}
+.stat-line b{color:var(--ash)}
+
+  /* 단원 선택 */
+  .topicsel{position:absolute;inset:0;z-index:30;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:16px;padding:26px;text-align:center;
+    background:rgba(8,10,14,.94);overflow-y:auto}
+  .topicsel.hide{display:none}
+  .topicsel h2{font-size:22px;font-weight:800;color:#fff}
+  .topicsel p{color:#8b93a6;font-size:14px;max-width:360px;line-height:1.6}
+  .topicsel .tgrid{display:flex;flex-direction:column;gap:10px;width:100%;max-width:340px}
+  .tbtn{padding:15px 18px;border-radius:12px;border:1px solid #2c3a4e;
+    background:#161c26;color:#eaf1f5;font-family:inherit;font-weight:700;font-size:17px;
+    cursor:pointer;display:flex;justify-content:space-between;align-items:center;
+    transition:transform .12s,border-color .15s}
+  .tbtn:hover{transform:translateY(-2px);border-color:#ff8c3a}
+  .tbtn .cnt{font-family:ui-monospace,monospace;font-size:12px;color:#8b93a6;font-weight:400}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="topbar">
+    <div class="brand">단어 소각장<small>Word Incinerator</small></div>
+    <div class="score"><div class="n" id="score">0</div><div class="l">SCORE</div></div>
+  </div>
+  <div class="gauge"><div class="fill" id="heat"></div></div>
+
+  <div class="stage" id="stage">
+    <div class="target" id="target"><div class="lbl">이 뜻을 태워라</div><div class="mean" id="mean">—</div></div>
+    <canvas class="embers" id="embers"></canvas>
+
+
+    <!-- 단원 선택 -->
+    <div class="topicsel" id="topicsel">
+      <h2>단원 선택</h2>
+      <p>어떤 단원으로 연습할까요?</p>
+      <div class="tgrid" id="tgrid"></div>
+    </div>
+
+    <!-- START -->
+    <div class="screen" id="start">
+      <h1>단어 <span>소각장</span></h1>
+      <p>화로에 뜻이 하나 뜹니다. 떠오르는 영어 단어 중 <b>그 뜻에 맞는 것</b>을 태우세요. 오래 못 태우면 열이 차오르고, 열이 가득 차면 화로가 터집니다.</p>
+      <button class="btn" id="go">불 지피기</button>
+    </div>
+
+    <!-- OVER -->
+    <div class="screen hide" id="over">
+      <h1 id="over-t">화로 폭발!</h1>
+      <div class="big" id="final">0</div>
+      <div class="stat-line" id="over-sub"></div>
+      <div class="row">
+        <button class="btn" id="again">다시 지피기</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// 모의고사 대비 단어 — 5개 단원
+const MOCK_TOPICS = [
+  { name:"환경", words:[
+    {en:"recycle",ko:"재활용하다"},{en:"pollute",ko:"오염시키다"},{en:"acid rain",ko:"산성비"},
+    {en:"harmful",ko:"해로운"},{en:"chemical",ko:"화학의"},{en:"reduce",ko:"줄이다"},
+    {en:"waste",ko:"쓰레기; 낭비하다"},{en:"dispose",ko:"처리하다"},{en:"protect",ko:"보호하다"},
+    {en:"oil spill",ko:"기름 유출"},{en:"contaminate",ko:"오염시키다"},{en:"damage",ko:"피해를 주다"},
+    {en:"greenhouse effect",ko:"온실 효과"},{en:"atmosphere",ko:"대기; 분위기"},{en:"temperature",ko:"온도, 기온"},
+    {en:"ozone layer",ko:"오존층"},{en:"ultraviolet rays",ko:"자외선"},{en:"discard",ko:"버리다"},
+    {en:"sewage",ko:"오수"},{en:"toxic",ko:"유독한"},{en:"almost",ko:"거의"},
+    {en:"cause",ko:"초래하다"},{en:"product",ko:"제품"},{en:"contain",ko:"포함하다"},
+    {en:"save",ko:"절약하다"},{en:"quality",ko:"품질"},{en:"severe",ko:"심한"},
+    {en:"marine",ko:"해양의"},{en:"occur",ko:"일어나다"},{en:"effect",ko:"효과; 결과"},
+    {en:"responsible",ko:"책임이 있는"},{en:"surface",ko:"표면"},{en:"shield",ko:"방패로 막다"},
+    {en:"human",ko:"인간의"},{en:"include",ko:"포함하다"},
+    {en:"preserve",ko:"보존하다"},{en:"tropical rainforest",ko:"열대 우림"},{en:"destruction",ko:"파괴"},
+    {en:"wildlife",ko:"야생 생물"},{en:"rescue",ko:"구조하다"},{en:"species",ko:"종"},
+    {en:"conserve",ko:"보호하다"},{en:"biodiversity",ko:"생물의 다양성"},{en:"extinct",ko:"멸종된"},
+    {en:"endanger",ko:"위험에 빠뜨리다"},{en:"global warming",ko:"지구 온난화"},{en:"habitat",ko:"서식지"},
+    {en:"organism",ko:"유기체, 생물"},{en:"call for",ko:"~을 청하다"},{en:"creation",ko:"창조"},
+    {en:"global",ko:"전세계의"},{en:"foundation",ko:"기초, 토대"},{en:"consideration",ko:"고려, 고찰"},
+    {en:"threaten",ko:"위협하다"},{en:"disturb",ko:"방해하다"},{en:"stability",ko:"안정성"},
+    {en:"available",ko:"이용 가능한"},{en:"source",ko:"원천, 공급원"},{en:"fossil fuel",ko:"화석 연료"},
+    {en:"coal",ko:"석탄"},{en:"exhaust",ko:"고갈시키다"},{en:"generate",ko:"발생시키다"},
+    {en:"deplete",ko:"고갈시키다"},{en:"cope",ko:"대처하다"},{en:"shortage",ko:"부족"},
+    {en:"utilize",ko:"이용하다"},{en:"reuse",ko:"재사용하다"},{en:"tide",ko:"조수, 조류"},
+  ]},
+  { name:"과학", words:[
+    {en:"matter",ko:"물질"},{en:"material",ko:"물질; 재료"},{en:"emit",ko:"내뿜다"},
+    {en:"scatter",ko:"흩뿌리다"},{en:"gas",ko:"가스, 기체"},{en:"molecule",ko:"분자"},
+    {en:"dust",ko:"먼지"},{en:"particle",ko:"입자"},{en:"atmosphere",ko:"대기; 공기"},
+    {en:"liquid",ko:"액체"},{en:"form",ko:"형성하다; 형태"},{en:"bubble",ko:"거품"},
+    {en:"vapor",ko:"증기"},{en:"boil",ko:"끓다, 끓이다"},{en:"density",ko:"밀도, 농도"},
+    {en:"mass",ko:"질량; 덩어리"},{en:"unit",ko:"단위"},{en:"volume",ko:"부피, 양"},
+    {en:"metal",ko:"금속"},{en:"amount",ko:"양, 액수"},{en:"element",ko:"원소; 요소"},
+    {en:"exist",ko:"존재하다"},{en:"atom",ko:"원자"},{en:"wood",ko:"목재"},
+    {en:"mineral",ko:"광물"},{en:"mixture",ko:"혼합물"},{en:"chemical",ko:"화학의"},
+    {en:"substance",ko:"물질"},{en:"nuclear",ko:"핵의"},{en:"sufficient",ko:"충분한"},
+    {en:"directly",ko:"직접"},{en:"result",ko:"결과"},{en:"precise",ko:"정확한"},
+    {en:"per",ko:"~당, ~마다"},{en:"rarely",ko:"좀처럼 ~ 않고"},{en:"rather",ko:"오히려; 다소"},
+    {en:"distinct",ko:"별개의"},
+    {en:"detect",ko:"탐지하다"},{en:"calculate",ko:"계산하다"},{en:"measure",ko:"측정하다"},
+    {en:"isolate",ko:"고립시키다"},{en:"combine",ko:"결합하다"},{en:"scientific",ko:"과학의"},
+    {en:"discovery",ko:"발견"},{en:"research",ko:"연구하다"},{en:"experimental",ko:"실험의"},
+    {en:"explore",ko:"탐험하다"},{en:"observe",ko:"관찰하다"},{en:"telescope",ko:"망원경"},
+    {en:"method",ko:"방법, 방식"},{en:"formula",ko:"공식"},{en:"process",ko:"과정"},
+    {en:"phenomenon",ko:"현상"},{en:"define",ko:"정의하다"},{en:"hypothesis",ko:"가설"},
+    {en:"theory",ko:"이론"},{en:"prove",ko:"증명하다"},{en:"principle",ko:"원리, 원칙"},
+    {en:"approach",ko:"접근하다"},{en:"split",ko:"쪼개다"},{en:"laboratory",ko:"실험실"},
+    {en:"fission",ko:"분열"},{en:"armchair",ko:"안락의자; 관념적인"},{en:"considerable",ko:"상당한"},
+    {en:"a number of",ko:"다수의"},{en:"derive",ko:"끌어내다"},{en:"ultimate",ko:"궁극적인"},
+    {en:"goal",ko:"목적, 목표"},{en:"conservation",ko:"보존, 보호"},{en:"suggest",ko:"시사하다; 제안하다"},
+  ]},
+  { name:"기술과 정보", words:[
+    {en:"function",ko:"기능(하다)"},{en:"mechanical",ko:"기계의"},{en:"device",ko:"장치; 고안"},
+    {en:"efficiency",ko:"효율성"},{en:"develop",ko:"개발하다"},{en:"portable",ko:"휴대용의"},
+    {en:"automatic",ko:"자동의"},{en:"instrument",ko:"기구; 악기"},{en:"monitor",ko:"관찰하다"},
+    {en:"mechanic",ko:"기계공, 수리공"},{en:"assemble",ko:"조립하다"},{en:"repair",ko:"수리하다"},
+    {en:"inspect",ko:"검사하다"},{en:"electric",ko:"전기의"},{en:"electronic",ko:"전자의"},
+    {en:"equipment",ko:"설비; 채비"},{en:"effectiveness",ko:"유효성"},{en:"relate",ko:"관계가 있다"},
+    {en:"level",ko:"수준"},
+    {en:"genetic engineering",ko:"유전 공학"},{en:"technique",ko:"기술, 기법"},{en:"clone",ko:"복제하다"},
+    {en:"transformation",ko:"변형"},{en:"gene",ko:"유전자"},{en:"progress",ko:"진보; 발전"},
+    {en:"innovation",ko:"혁신"},{en:"inventive",ko:"발명의"},{en:"patent",ko:"특허품; 특허권"},
+    {en:"molecular",ko:"분자의"},{en:"characteristic",ko:"특성; 특징적인"},{en:"represent",ko:"나타내다, 대표하다"},
+    {en:"spirit",ko:"정신, 영혼"},{en:"continue",ko:"계속하다"},{en:"numerous",ko:"다수의, 수많은"},
+    {en:"industry",ko:"산업"},
+    {en:"improve",ko:"향상시키다"},{en:"analyze",ko:"분석하다"},{en:"classify",ko:"분류하다"},
+    {en:"transmit",ko:"전송하다"},{en:"data",ko:"자료"},{en:"advance",ko:"진보하다, 발달하다"},
+    {en:"e-commerce",ko:"전자 상거래"},{en:"convenient",ko:"편리한"},{en:"wireless",ko:"무선의"},
+    {en:"security",ko:"보안; 안전"},{en:"connect",ko:"접속하다"},{en:"network",ko:"방송망, 네트워크"},
+    {en:"install",ko:"설치하다"},{en:"hacker",ko:"해커"},{en:"access",ko:"접근(하다)"},
+    {en:"operation",ko:"조작; 수술"},{en:"information technology",ko:"정보 기술"},{en:"surf the Internet",ko:"인터넷을 탐색하다"},
+    {en:"virtual reality",ko:"가상현실"},{en:"telecommunicate",ko:"원격 통신으로 보내다"},{en:"capability",ko:"능력; 용량"},
+    {en:"once",ko:"일단 ~하면; 한번"},{en:"virus",ko:"바이러스"},{en:"remote",ko:"멀리 떨어진"},
+    {en:"perform",ko:"수행하다; 공연하다"},{en:"various",ko:"다양한"},{en:"thanks to",ko:"~ 덕분에"},
+    {en:"reality",ko:"현실, 실제"},
+  ]},
+  { name:"심리", words:[
+    {en:"disturbance",ko:"동요, 불안"},{en:"conflict",ko:"갈등; 대립"},{en:"unconscious",ko:"의식하지 못하는"},
+    {en:"personality",ko:"성격, 개성"},{en:"relieve",ko:"덜다; 안심시키다"},{en:"tension",ko:"긴장"},
+    {en:"upset",ko:"혼란; 기분이 상한"},{en:"pretend",ko:"~인 체하다"},{en:"hate",ko:"싫어하다, 미워하다"},
+    {en:"fantasy",ko:"공상, 환상"},{en:"fascinate",ko:"매혹하다"},{en:"mysterious",ko:"신비로운"},
+    {en:"fantastic",ko:"환상적인; 멋진"},{en:"nostalgic",ko:"향수의"},{en:"instinctive",ko:"본능적인"},
+    {en:"mental",ko:"마음의, 정신의"},{en:"impulse",ko:"충동; 추진력"},{en:"desire",ko:"욕망, 욕구"},
+    {en:"perplex",ko:"당황하게 하다"},{en:"annoy",ko:"괴롭히다"},{en:"contempt",ko:"경멸"},
+    {en:"hostility",ko:"적의, 적대감"},{en:"affection",ko:"애정"},{en:"tempt",ko:"유혹하다"},
+    {en:"remind",ko:"상기시키다"},{en:"decisive",ko:"단호한"},{en:"hesitate",ko:"망설이다, 주저하다"},
+    {en:"yearn",ko:"갈망하다"},{en:"due to",ko:"~ 때문에"},{en:"hide",ko:"숨다; 숨기다"},
+    {en:"fiction",ko:"소설; 허구"},{en:"magical",ko:"마법의; 마술적인"},{en:"region",ko:"영역; 지역"},
+    {en:"constantly",ko:"끊임없이"},{en:"arise",ko:"생기다"},{en:"gesture",ko:"몸짓, 손짓"},
+    {en:"allow",ko:"허락하다"},{en:"variety",ko:"다양성"},{en:"approval",ko:"호의; 찬성"},
+    {en:"arrogance",ko:"거만, 오만"},{en:"pride",ko:"자부심; 자랑"},{en:"cheerful",ko:"기분이 좋은, 명랑한"},
+    {en:"satisfied",ko:"만족한"},{en:"gloomy",ko:"우울한"},{en:"miserable",ko:"슬픈; 비참한"},
+    {en:"anxious",ko:"걱정하는; 갈망하는"},{en:"depressed",ko:"낙담한"},{en:"desperate",ko:"절망적인"},
+    {en:"consolation",ko:"위안, 위로"},{en:"regret",ko:"후회하다"},{en:"anger",ko:"화"},
+    {en:"fear",ko:"공포, 두려움"},{en:"frustration",ko:"좌절"},{en:"embarrassment",ko:"당혹, 당황"},
+    {en:"disappointment",ko:"실망"},{en:"jealousy",ko:"질투, 시기"},{en:"loneliness",ko:"외로움, 고독"},
+    {en:"boredom",ko:"지루함, 권태"},{en:"sadness",ko:"슬픔"},{en:"afraid",ko:"두려워하여"},
+    {en:"nervous",ko:"초조한, 긴장한"},{en:"frightened",ko:"무서워하여"},{en:"vulnerable",ko:"상처받기 쉬운"},
+    {en:"perhaps",ko:"아마도"},{en:"shadow",ko:"그림자"},
+  ]},
+  { name:"경제", words:[
+    {en:"exchange",ko:"교환(하다)"},{en:"goods",ko:"재화; 상품"},{en:"service",ko:"용역"},
+    {en:"enable",ko:"가능하게 하다"},{en:"labor",ko:"노동; 노동하다"},{en:"supply",ko:"공급(하다)"},
+    {en:"demand",ko:"수요; 요구하다"},{en:"industry",ko:"산업; 근면"},{en:"recent",ko:"최근의"},
+    {en:"survey",ko:"조사하다; 개관하다"},{en:"gap",ko:"격차"},{en:"import",ko:"수입(하다)"},
+    {en:"export",ko:"수출(하다)"},{en:"produce",ko:"생산하다"},{en:"transaction",ko:"거래; 처리"},
+    {en:"retail",ko:"소매의; 소매하다"},{en:"commerce",ko:"상업, 무역"},{en:"balance",ko:"균형; 수지"},
+    {en:"customer",ko:"고객, 손님"},{en:"consumer",ko:"소비자"},{en:"wholesaler",ko:"도매상인"},
+    {en:"distributor",ko:"유통업자; 분배자"},{en:"retailer",ko:"소매상인"},{en:"purchase",ko:"구입(하다)"},
+    {en:"item",ko:"물품"},{en:"refund",ko:"환불(하다)"},{en:"receipt",ko:"영수증; 수령"},
+    {en:"objective",ko:"목적; 객관적인"},{en:"vital",ko:"중대한; 생명의"},{en:"whether A or B",ko:"A이든 B이든"},
+    {en:"shift",ko:"이동하다; 바꾸다"},{en:"favor",ko:"이익; 호의; 부탁"},{en:"realization",ko:"인식; 실현"},
+    {en:"relationship",ko:"관계, 관련"},
+    {en:"employment",ko:"고용"},{en:"contract",ko:"계약(하다)"},{en:"incentive",ko:"포상금; 장려하는"},
+    {en:"compensation",ko:"보상"},{en:"expire",ko:"만기가 되다"},{en:"valid",ko:"유효한; 타당한"},
+    {en:"business",ko:"사업; 장사"},{en:"competition",ko:"경쟁"},{en:"control",ko:"지배하다, 통제하다"},
+    {en:"develop",ko:"개발하다; 발전시키다"},{en:"a price break",ko:"가격 인하"},{en:"order",ko:"주문하다; 명령하다"},
+    {en:"quantity",ko:"양, 수량"},{en:"cost",ko:"비용; 비용이 들다"},{en:"store",ko:"저장하다; 가게"},
+    {en:"ship",ko:"수송하다; 배"},{en:"bill",ko:"청구하다; 청구서"},{en:"company",ko:"회사; 동행"},
+    {en:"possess",ko:"소유하다"},{en:"manufacture",ko:"제조(하다)"},{en:"advertise",ko:"광고하다"},
+    {en:"promote",ko:"촉진하다; 승진시키다"},{en:"currently",ko:"현재는, 지금은"},{en:"ensure",ko:"보증하다"},
+    {en:"exclusive",ko:"독점적인; 배타적인"},
+  ]},
+];
+let WORDS = MOCK_TOPICS[0].words;
+
+const $=s=>document.querySelector(s);
+const stage=$('#stage');
+const shuffle=a=>a.map(x=>[Math.random(),x]).sort((p,q)=>p[0]-q[0]).map(x=>x[1]);
+const pick=(arr,n,not)=>shuffle(arr.filter(w=>w!==not)).slice(0,n);
+
+let target=null, coals=[], score=0, heat=0, running=false, spawnAcc=0, rise=0.5;
+let last=0, raf=null;
+
+const W=()=>stage.clientWidth, H=()=>stage.clientHeight;
+
+function newTarget(){
+  target=shuffle(WORDS)[0];
+  $('#mean').textContent=target.ko;
+}
+
+function spawnCoal(){
+  // 50% 확률로 정답 포함, 나머지는 오답
+  const useTarget = !coals.some(c=>c.w===target) || Math.random()<0.4;
+  const w = useTarget ? target : pick(WORDS,1,target)[0];
+  const el=document.createElement('button');
+  el.className='coal';el.textContent=w.en;
+  const x=20+Math.random()*(W()-140);
+  el.style.left=x+'px';
+  el.style.bottom='-50px';
+  const c={w,el,y:-50,vy:26+Math.random()*14};   // px/sec upward
+  el.onclick=()=>hit(c);
+  stage.appendChild(el);
+  coals.push(c);
+}
+
+function hit(c){
+  if(!running)return;
+  if(c.w===target){
+    c.el.classList.add('burn');
+    // 불꽃 폭발 (석탄 위치에서)
+    const r=c.el.getBoundingClientRect(), sr=stage.getBoundingClientRect();
+    spark(r.left-sr.left+r.width/2, r.top-sr.top+r.height/2, 22, true);
+    score+=10; $('#score').textContent=score;
+    heat=Math.max(0,heat-8); updateHeat();
+    coals=coals.filter(x=>x!==c);
+    setTimeout(()=>c.el.remove(),450);
+    rise+=0.04;                       // 점점 빨라짐
+    newTarget();
+  }else{
+    c.el.classList.add('dud');
+    heat=Math.min(100,heat+10); updateHeat();
+    setTimeout(()=>c.el.classList.remove('dud'),300);
+    if(heat>=100) end();
+  }
+}
+
+function updateHeat(){
+  const f=$('#heat'); f.style.width=heat+'%';
+  f.classList.toggle('crit',heat>=75);
+}
+
+function loop(t){
+  if(!running)return;
+  const dt=Math.min((t-last)/1000,0.05); last=t;
+  drawParticles(dt);
+  // rise coals
+  const top=70;
+  for(let i=coals.length-1;i>=0;i--){
+    const c=coals[i];
+    c.y+=c.vy*dt;
+    c.el.style.bottom=c.y+'px';
+    // reached the furnace top
+    if(c.y>H()-top){
+      if(c.w===target){ heat=Math.min(100,heat+16); updateHeat();
+        newTarget(); if(heat>=100){end();return;} }
+      c.el.remove(); coals.splice(i,1);
+    }
+  }
+  // ensure a target coal exists sometimes
+  spawnAcc+=dt;
+  const interval=Math.max(0.55,1.3-rise*0.12);
+  if(spawnAcc>interval && coals.length<7){spawnAcc=0;spawnCoal();}
+  if(!coals.some(c=>c.w===target)&&Math.random()<0.04) spawnCoal();
+  // idle heat creep
+  heat=Math.min(100,heat+rise*dt*3); updateHeat();
+  if(heat>=100){end();return;}
+  raf=requestAnimationFrame(loop);
+}
+
+function start(){
+  // reset
+  coals.forEach(c=>c.el.remove()); coals=[];
+  score=0;heat=0;rise=0.5;spawnAcc=0;running=true;
+  $('#score').textContent='0';updateHeat();
+  $('#start').classList.add('hide');$('#over').classList.add('hide');
+  newTarget();
+  for(let k=0;k<3;k++) spawnCoal();
+  last=performance.now();
+  raf=requestAnimationFrame(loop);
+}
+
+function end(){
+  running=false; if(raf)cancelAnimationFrame(raf);
+  coals.forEach(c=>c.el.remove()); coals=[];
+  $('#final').textContent=score;
+  $('#over-sub').innerHTML='태운 단어 <b>'+(score/10)+'</b>개';
+  $('#over').classList.remove('hide');
+}
+
+$('#go').onclick=start;
+$('#again').onclick=start;
+
+// 메뉴/종료 화면에서도 잔불이 은은하게 피어오르게
+let ambientLast=performance.now();
+function ambient(t){
+  if(!running){
+    const dt=Math.min((t-ambientLast)/1000,0.05);ambientLast=t;
+    drawParticles(dt);
+  }else ambientLast=t;
+  requestAnimationFrame(ambient);
+}
+requestAnimationFrame(ambient);
+
+// ===== 불꽃 파티클 시스템 =====
+const cv=$('#embers'), ex=cv.getContext('2d');
+let particles=[];
+function fit(){cv.width=stage.clientWidth;cv.height=stage.clientHeight;}
+window.addEventListener('resize',fit);fit();
+
+function spark(x,y,n,hot){
+  for(let i=0;i<n;i++){
+    particles.push({
+      x,y,
+      vx:(Math.random()-.5)*(hot?3:1.4),
+      vy:-Math.random()*(hot?3.5:1.2)-0.5,
+      life:1, decay:0.012+Math.random()*0.02,
+      size:1+Math.random()*(hot?3:2),
+      hot
+    });
+  }
+}
+
+function drawParticles(dt){
+  ex.clearRect(0,0,cv.width,cv.height);
+  // ambient rising embers from the furnace floor
+  if(running && Math.random()<0.5){
+    spark(Math.random()*cv.width, cv.height-4, 1, false);
+  }
+  for(let i=particles.length-1;i>=0;i--){
+    const p=particles[i];
+    p.x+=p.vx; p.y+=p.vy; p.vy+=0.02; p.life-=p.decay;
+    if(p.life<=0){particles.splice(i,1);continue;}
+    const a=p.life;
+    if(p.hot){
+      // bright burn sparks: white->yellow->orange
+      const g=Math.floor(150+105*a);
+      ex.fillStyle=`rgba(255,${g},${Math.floor(60*a)},${a})`;
+    }else{
+      // soft floating ember
+      ex.fillStyle=`rgba(255,${Math.floor(110+60*a)},40,${a*0.7})`;
+    }
+    ex.shadowBlur=8*a; ex.shadowColor='rgba(255,120,30,'+a+')';
+    ex.beginPath();ex.arc(p.x,p.y,p.size,0,7);ex.fill();
+  }
+  ex.shadowBlur=0;
+}
+
+/* ===== 단원 선택 ===== */
+function renderTopics(){
+  const g=document.getElementById('tgrid');g.innerHTML='';
+  MOCK_TOPICS.forEach((t,i)=>{
+    const b=document.createElement('button');b.className='tbtn';
+    b.innerHTML='<span>'+t.name+'</span><span class="cnt">'+t.words.length+'단어</span>';
+    b.onclick=()=>{ WORDS=t.words; document.getElementById('topicsel').classList.add('hide'); start(); };
+    g.appendChild(b);
+  });
+}
+function showTopics(){
+  document.getElementById('topicsel').classList.remove('hide');
+  document.getElementById('start').classList.add('hide');
+  var ov=document.getElementById('over'); if(ov) ov.classList.add('hide');
+  renderTopics();
+}
+// 시작/다시 버튼을 단원 선택으로 라우팅
+(function(){
+  var go=document.getElementById('go');
+  if(go) go.onclick=showTopics;
+  var ag=document.getElementById('again');
+  if(ag) ag.onclick=showTopics;
+})();
+// 페이지 로드 시 단원 선택 버튼 즉시 표시
+renderTopics();
+document.getElementById('topicsel').classList.remove('hide');
+
+</script>
+</body>
+</html>
