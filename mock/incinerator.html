@@ -151,6 +151,49 @@ body{
 </div>
 
 <script>
+/* ===== 공통 학습 기록 (이 폰에만 저장) ===== */
+const VOCAB_STORE = (function(){
+  const WRONG_KEY = 'vocab_wrong_v1';   // 오답노트
+  const STAT_KEY  = 'vocab_stats_v1';   // 게임별 최고기록
+  function load(k){ try{return JSON.parse(localStorage.getItem(k))||{};}catch(e){return {};} }
+  function save(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){} }
+  return {
+    // 틀린 단어 기록: unit 단원, w={en,ko}
+    addWrong(unit, w){
+      if(!w||!w.en) return;
+      const d=load(WRONG_KEY);
+      const key=unit+'|'+w.en;
+      if(!d[key]) d[key]={en:w.en, ko:w.ko, unit:unit, count:0};
+      d[key].count++;
+      d[key].last=Date.now();
+      save(WRONG_KEY,d);
+    },
+    // 맞히면 오답노트에서 서서히 제거 (2번 연속 맞히면 지움)
+    markRight(unit, w){
+      if(!w||!w.en) return;
+      const d=load(WRONG_KEY);
+      const key=unit+'|'+w.en;
+      if(d[key]){ d[key].count-=1; if(d[key].count<=0) delete d[key]; save(WRONG_KEY,d); }
+    },
+    getWrong(){ return Object.values(load(WRONG_KEY)); },
+    clearWrong(){ save(WRONG_KEY,{}); },
+    // 최고기록: game 게임명, unit, level, value(점수/시간), higher=true면 큰게좋음
+    saveBest(game, unit, level, value, higher){
+      const d=load(STAT_KEY);
+      const key=game+'|'+unit+'|'+level;
+      const cur=d[key];
+      const better = cur==null || (higher ? value>cur : value<cur);
+      if(better){ d[key]=value; save(STAT_KEY,d); return true; }
+      return false;
+    },
+    getBest(game, unit, level){
+      const d=load(STAT_KEY);
+      return d[game+'|'+unit+'|'+level];
+    },
+    setLastUnit(u){ save('vocab_last_unit',{u}); },
+    getLastUnit(){ return (load('vocab_last_unit')||{}).u; },
+  };
+})();
 // 모의고사 대비 단어 — 5개 단원
 const MOCK_TOPICS = [
   { name:"환경", words:[
@@ -278,6 +321,7 @@ const MOCK_TOPICS = [
   ]},
 ];
 let WORDS = MOCK_TOPICS[0].words;
+let curUnit = MOCK_TOPICS[0].name;
 
 const $=s=>document.querySelector(s);
 const stage=$('#stage');
@@ -317,6 +361,7 @@ function hit(c){
     const r=c.el.getBoundingClientRect(), sr=stage.getBoundingClientRect();
     spark(r.left-sr.left+r.width/2, r.top-sr.top+r.height/2, 22, true);
     score+=10; $('#score').textContent=score;
+    VOCAB_STORE.markRight(curUnit, target);
     heat=Math.max(0,heat-8); updateHeat();
     coals=coals.filter(x=>x!==c);
     setTimeout(()=>c.el.remove(),450);
@@ -324,6 +369,7 @@ function hit(c){
     newTarget();
   }else{
     c.el.classList.add('dud');
+    VOCAB_STORE.addWrong(curUnit, target);   // 못 맞힌 정답 단어를 오답노트에
     heat=Math.min(100,heat+10); updateHeat();
     setTimeout(()=>c.el.classList.remove('dud'),300);
     if(heat>=100) end();
@@ -447,7 +493,7 @@ function renderTopics(){
   MOCK_TOPICS.forEach((t,i)=>{
     const b=document.createElement('button');b.className='tbtn';
     b.innerHTML='<span>'+t.name+'</span><span class="cnt">'+t.words.length+'단어</span>';
-    b.onclick=()=>{ WORDS=t.words; document.getElementById('topicsel').classList.add('hide'); start(); };
+    b.onclick=()=>{ WORDS=t.words; curUnit=t.name; VOCAB_STORE.setLastUnit(t.name); document.getElementById('topicsel').classList.add('hide'); start(); };
     g.appendChild(b);
   });
 }
