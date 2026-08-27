@@ -60,6 +60,9 @@ h1 .u{color:var(--lime)}
 .qr canvas{width:100%;height:100%;image-rendering:pixelated}
 .qr.empty{background:var(--slate);border:1px dashed var(--line);
   color:var(--dim);font-size:11px;text-align:center;line-height:1.4;padding:10px}
+.card.is-locked{opacity:.62}
+.card.is-locked .qr.empty{font-size:34px;align-items:center;justify-content:center;
+  border-style:solid;background:var(--slate2)}
 .meta{flex:1;min-width:0;display:flex;flex-direction:column}
 .badge{align-self:flex-start;font-family:ui-monospace,monospace;font-size:10px;
   letter-spacing:.13em;padding:3px 8px;border-radius:5px;text-transform:uppercase;font-weight:700}
@@ -143,22 +146,27 @@ footer .mono{font-family:ui-monospace,monospace}
    ========================================================= */
 const GROUPS = [
   {
-    title:"플레이 — 단어 아케이드", tag:"ARCADE", accent:"lime",
+    title:"교과서 대비", tag:"TEXTBOOK", accent:"lime",
     items:[
-      {name:"단어 아케이드 · 5개 주제",
-       desc:"환경·기술·과학·심리·경제 5개 탭. 낚시·단어 고르기·의미 사수·카드 뒤집기 4게임.",
-       url:"https://teal-sprite-82b57a.netlify.app"},
       {name:"2학기 단어 게임",
-       desc:"2학기 수업 단어 53개. 아케이드 4게임 그대로.",
+       desc:"2학기 교과서 단어 53개. 낚시·단어 고르기·의미 사수·카드 뒤집기 4게임.",
        url:"https://bejewelled-basbousa-6818d9.netlify.app"},
     ]
   },
   {
-    title:"프로토타입 — 어휘 실험실", tag:"LAB", accent:"cyan",
+    title:"모의고사 대비", tag:"MOCK EXAM", accent:"amber",
+    items:[
+      {name:"모의고사 단어 게임",
+       desc:"소각장·다리 놓기·지뢰밭 3게임. 5개 단원 선택. 클릭 후 게임을 고르세요.",
+       url:""},
+    ]
+  },
+  {
+    title:"기타", tag:"MORE", accent:"cyan",
     items:[
       {name:"어휘 실험실 · 10종",
-       desc:"경매·거짓말쟁이 사전·오염된 사전 등 실험용 게임 10가지. 반응 좋은 걸 골라 쓰세요.",
-       url:"https://superlative-pika-ebc819.netlify.app"},
+       desc:"준비 중입니다. 곧 열려요.",
+       url:"https://superlative-pika-ebc819.netlify.app", locked:true},
     ]
   },
 ];
@@ -2489,17 +2497,19 @@ GROUPS.forEach(g=>{
   const cards=document.createElement('div');cards.className='cards';
   g.items.forEach(it=>{
     const card=document.createElement('div');card.className='card '+g.accent;
-    const hasUrl=!!it.url;
+    const locked=!!it.locked;
+    const hasUrl=!!it.url && !locked;
+    if(locked) card.classList.add('is-locked');
     card.innerHTML=`
       <div class="card-top">
-        <div class="qr ${hasUrl?'':'empty'}">${hasUrl?'<canvas></canvas>':'주소 등록<br>전'}</div>
+        <div class="qr ${hasUrl?'':'empty'}">${hasUrl?'<canvas></canvas>':(locked?'🔒':'주소 등록<br>전')}</div>
         <div class="meta">
           <span class="badge ${g.accent}">${g.tag}</span>
           <h3>${it.name}</h3>
           <div class="desc">${it.desc}</div>
           <div class="status">
             <span class="dot ${hasUrl?'live':'wait'}"></span>
-            <span class="${hasUrl?'live-t':'wait-t'}">${hasUrl?'게시됨':'준비 중 — 주소 등록 후 활성화'}</span>
+            <span class="${hasUrl?'live-t':'wait-t'}">${locked?'🔒 잠김 — 준비 중':(hasUrl?'게시됨':'준비 중 — 주소 등록 후 활성화')}</span>
           </div>
         </div>
       </div>
@@ -2508,7 +2518,9 @@ GROUPS.forEach(g=>{
           ? `<a class="go" href="${it.url}" target="_blank" rel="noopener">열기 ↗</a>
              <div class="divider"></div>
              <button class="qrbtn">QR 띄우기</button>`
-          : `<span class="disabled">열기</span><div class="divider"></div><span class="disabled">QR</span>`}
+          : (locked
+             ? `<span class="disabled">🔒 준비 중</span>`
+             : `<span class="disabled">열기</span><div class="divider"></div><span class="disabled">QR</span>`)}
       </div>`;
     cards.appendChild(card);
     if(hasUrl){
