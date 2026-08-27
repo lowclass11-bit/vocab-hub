@@ -49,6 +49,8 @@ h1 span{color:var(--gold)}
 .gamecard.c-gold .tag{background:rgba(255,207,92,.15);color:var(--gold)}
 .gamecard.c-mine:hover{border-color:var(--mine)}
 .gamecard.c-mine .tag{background:rgba(87,217,163,.15);color:var(--mine)}
+.gamecard.c-card:hover{border-color:#9d8bf0}
+.gamecard.c-card .tag{background:rgba(157,139,240,.15);color:#9d8bf0}
 .foot{color:var(--dim);font-size:12px;line-height:1.6;font-family:ui-monospace,monospace}
 
 /* 게임 화면 (iframe) */
@@ -100,6 +102,15 @@ h1 span{color:var(--gold)}
           <span class="tag">판단 · 신중</span>
         </div>
       </button>
+
+      <button class="gamecard c-card" data-game="cardmatch.html">
+        <div class="ico">🃏</div>
+        <div class="body">
+          <h3>카드 짝 맞추기</h3>
+          <p>카드를 뒤집어 영어와 뜻의 짝을 맞추는 기억력 게임. 6·8·10쌍 난이도.</p>
+          <span class="tag">기억 · 매칭</span>
+        </div>
+      </button>
     </div>
 
     <div class="foot">단원 선택은 각 게임 안에서 · 모바일 최적화</div>
@@ -120,6 +131,7 @@ const NAMES = {
   'incinerator.html':'🔥 단어 소각장',
   'bridge.html':'🌉 단어 다리 놓기',
   'minefield.html':'💣 지뢰밭 건너기',
+  'cardmatch.html':'🃏 카드 짝 맞추기',
 };
 const player=document.getElementById('player');
 const frame=document.getElementById('frame');
