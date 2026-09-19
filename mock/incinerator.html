@@ -557,6 +557,17 @@ const MOCK_TOPICS = [
     {en:"impact",ko:"영향, 충격"},
   ]},
 ];
+// ===== 종합: 모든 단원 단어를 자동으로 합침 (단원 추가 시 함께 갱신) =====
+(function(){
+  var seen={}, all=[];
+  MOCK_TOPICS.forEach(function(t){
+    t.words.forEach(function(w){
+      var k=w.en.toLowerCase();
+      if(!seen[k]){ seen[k]=1; all.push(w); }
+    });
+  });
+  MOCK_TOPICS.push({ name:"종합", words:all });
+})();
 let WORDS = MOCK_TOPICS[0].words;
 let curUnit = MOCK_TOPICS[0].name;
 
