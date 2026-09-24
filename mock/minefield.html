@@ -165,6 +165,7 @@ body{background:var(--night);color:var(--snow);
   </div>
 </div>
 
+<script src="stamp.js" data-game="minefield"></script>
 <script>
 /* ===== 공통 학습 기록 (이 폰에만 저장) ===== */
 const VOCAB_STORE = (function(){
@@ -693,6 +694,7 @@ function explode(el){
 function setLives(){$('#lives').textContent='❤️'.repeat(lives)||'💥';}
 
 function win(){
+  reportStamp();
   $('#over-t').innerHTML='건넜다! 🎉';
   $('#final').textContent=score;
   $('#over-sub').textContent=ROWS+'줄 완주 · 남은 하트 '+lives;

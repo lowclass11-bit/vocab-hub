@@ -147,6 +147,7 @@ body{
   </div>
 </div>
 
+<script src="stamp.js" data-game="cardmatch"></script>
 <script>
 /* ===== 공통 학습 기록 (이 폰에만 저장) ===== */
 const VOCAB_STORE = (function(){
@@ -663,6 +664,7 @@ function flip(el,card){
 
 function win(){
   clearInterval(timer);
+  reportStamp();
   const isBest = best[curUnit+'-'+curLabel]==null || sec<best[curUnit+'-'+curLabel];
   if(isBest) best[curUnit+'-'+curLabel]=sec;
   $('#best').textContent = best[curUnit+'-'+curLabel]!=null ? fmt(best[curUnit+'-'+curLabel]) : '—';

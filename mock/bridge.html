@@ -144,6 +144,7 @@ body{background:var(--sky);color:var(--ink);
   </div>
 </div>
 
+<script src="stamp.js" data-game="bridge"></script>
 <script>
 /* ===== 공통 학습 기록 (이 폰에만 저장) ===== */
 const VOCAB_STORE = (function(){
@@ -657,6 +658,7 @@ function start(){
 
 function end(){
   running=false;if(raf)cancelAnimationFrame(raf);
+  reportStamp();
   const w=$('#walker');w.textContent='😱';w.style.transform='scaleX(1)';
   w.style.transition='top .6s, transform .6s';
   $('#final').textContent=steps;

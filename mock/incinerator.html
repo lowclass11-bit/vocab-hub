@@ -150,6 +150,7 @@ body{
   </div>
 </div>
 
+<script src="stamp.js" data-game="incinerator"></script>
 <script>
 /* ===== 공통 학습 기록 (이 폰에만 저장) ===== */
 const VOCAB_STORE = (function(){
@@ -671,6 +672,7 @@ function start(){
 
 function end(){
   running=false; if(raf)cancelAnimationFrame(raf);
+  reportStamp();
   coals.forEach(c=>c.el.remove()); coals=[];
   $('#final').textContent=score;
   $('#over-sub').innerHTML='태운 단어 <b>'+(score/10)+'</b>개';
